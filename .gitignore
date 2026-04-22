@@ -1,0 +1,45 @@
+# ── Python ──────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual environment ──────────────────────────
+venv/
+env/
+.venv/
+ENV/
+
+# ── ML model files (large — re-train from scripts) ──
+# Comment out these lines if you want to commit models to git-lfs
+ml_models/saved/crop_recommend.pkl
+ml_models/saved/pest_model.pkl
+ml_models/saved/rotation_model.pkl
+ml_models/saved/disease_demo_rf.pkl
+ml_models/saved/market_lstm.keras
+
+# ── Datasets (auto-generated or download from Kaggle) ──
+datasets/*.csv
+datasets/disease_images/
+
+# ── Flask / Python secrets ───────────────────────
+.env
+*.secret
+
+# ── OS / editor artefacts ────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/settings.json
+
+# ── Outputs ──────────────────────────────────────
+outputs/
+
+# ── Logs ─────────────────────────────────────────
+*.log

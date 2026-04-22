@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Plant Disease Detection — AgroSense{% endblock %}
+{% block meta_description %}Upload a leaf photo to instantly diagnose plant diseases using a MobileNetV2 CNN trained on 54,000+ PlantVillage images.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
+  <h2>🔬 Plant Disease Detection</h2>
+  <p>Upload a clear photo of a leaf to diagnose diseases</p>
+</div>
+
+<div class="content-wrap">
+  <div class="row g-4">
+
+    <!-- ── INPUT ── -->
+    <div class="col-lg-6">
+      <div class="form-card">
+        <h4>📸 Upload Leaf Image</h4>
+        <div class="upload-zone" id="drop-zone"
+             onclick="document.getElementById('leaf-input').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleDrop(event)"
+             role="button" tabindex="0" aria-label="Upload leaf image">
+          <div class="icon">🍃</div>
+          <h4>Click or drag &amp; drop</h4>
+          <p>JPG, PNG up to 5MB — works best with clear, close-up leaf shots</p>
+        </div>
+        <input type="file" id="leaf-input" accept="image/*" style="display:none" onchange="handleImageUpload(this)"/>
+        <img id="upload-preview" class="upload-preview" alt="Uploaded leaf preview"/>
+
+        <div id="sample-btns" style="margin-top:16px;">
+          <div class="section-title">Try sample images</div>
+          <div class="tag-list">
+            <span class="tag" style="cursor:pointer" onclick="useSample('Tomato Leaf Blight','diseased',88)">🍅 Tomato Blight</span>
+            <span class="tag" style="cursor:pointer" onclick="useSample('Healthy Corn','healthy',97)">🌽 Healthy Corn</span>
+            <span class="tag" style="cursor:pointer" onclick="useSample('Apple Scab','diseased',82)">🍎 Apple Scab</span>
+            <span class="tag" style="cursor:pointer" onclick="useSample('Potato Late Blight','diseased',91)">🥔 Potato Blight</span>
+            <span class="tag" style="cursor:pointer" onclick="useSample('Healthy Rice','healthy',95)">🌾 Healthy Rice</span>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="disease-btn" onclick="runDiseaseDetect(this)" disabled style="opacity:0.5;">
+          <span class="btn-text">🔍 Diagnose Disease</span>
+          <span class="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="col-lg-6">
+      <div class="result-card" id="disease-result">
+        <div class="result-label">Diagnosis</div>
+        <div id="disease-badge-wrap" style="margin:10px 0;"></div>
+        <div class="result-value" id="disease-name" style="font-size:26px;">—</div>
+        <div class="confidence-bar-wrap">
+          <label class="result-sub" style="margin-bottom:6px;" id="disease-conf">Confidence: —</label>
+          <div class="confidence-bar"><div class="confidence-fill" id="disease-conf-bar" style="width:0%"></div></div>
+        </div>
+        <hr class="divider"/>
+        <div class="section-title">Treatment Recommendation</div>
+        <p id="disease-treatment" style="font-size:14px;color:var(--text-mid);line-height:1.7;background:var(--green-pale);padding:14px;border-radius:var(--radius-sm);"></p>
+        <hr class="divider"/>
+        <div class="section-title">Affected Plant Parts</div>
+        <div class="tag-list" id="disease-parts"></div>
+        <hr class="divider"/>
+        <div class="section-title">Preventive Measures</div>
+        <ul id="disease-preventive" style="font-size:13px;color:var(--text-mid);line-height:2;padding-left:18px;"></ul>
+      </div>
+
+      <div class="form-card" style="margin-top:16px;">
+        <h4>ℹ️ Model details</h4>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.7;">
+          <strong>MobileNetV2 CNN</strong> trained on PlantVillage dataset — 54,000+ images across 38 disease classes.
+          Transfer learning from ImageNet for fast, accurate classification even on mobile CPUs.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

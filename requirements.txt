@@ -1,0 +1,28 @@
+# AgroSense — Python Requirements
+# Install: pip install -r requirements.txt
+
+# ── Core Flask ──────────────────────────────────────
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# ── ML / Data ───────────────────────────────────────
+scikit-learn>=1.4.0
+xgboost>=2.0.0
+pandas>=2.2.0
+numpy>=1.26.0
+joblib>=1.4.0
+
+# ── Image processing (Pillow + OpenCV for CNN route) ─
+Pillow>=10.0.0
+opencv-python>=4.8.0
+
+# ── Deep Learning (disease detection CNN) ───────────
+tensorflow>=2.15.0
+keras>=3.0.0
+
+# ── Optional: Database ──────────────────────────────
+# mysql-connector-python>=8.3.0
+SQLAlchemy>=2.0.0
+
+# ── Optional: Environment variables ─────────────────
+python-dotenv>=1.0.0

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Pest Risk Prediction — AgroSense{% endblock %}
+{% block meta_description %}Assess pest infestation risk and get a preventive action plan based on weather, crop, and historical pest data.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
+  <h2>🐛 Pest Risk Prediction</h2>
+  <p>Assess infestation risk and get preventive action plan</p>
+</div>
+
+<div class="content-wrap">
+  <div class="row g-4">
+
+    <!-- ── INPUT ── -->
+    <div class="col-lg-6">
+      <div class="form-card">
+        <h4>🌿 Farm Conditions</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="pest-crop">Crop</label>
+            <select class="form-select" id="pest-crop">
+              <option>Rice</option><option>Wheat</option><option>Maize</option><option>Cotton</option>
+              <option>Tomato</option><option>Potato</option><option>Sugarcane</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pest-season">Season</label>
+            <select class="form-select" id="pest-season">
+              <option>Kharif (Jun–Oct)</option><option>Rabi (Nov–Mar)</option><option>Zaid (Mar–Jun)</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pest-temp-range">Temperature — °C</label>
+            <div class="range-row">
+              <input id="pest-temp-range" type="range" min="10" max="45" value="30" oninput="rv(this,'pest-temp')"/>
+              <span class="range-val" id="pest-temp">30</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pest-hum-range">Humidity — %</label>
+            <div class="range-row">
+              <input id="pest-hum-range" type="range" min="20" max="100" value="75" oninput="rv(this,'pest-hum')"/>
+              <span class="range-val" id="pest-hum">75</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pest-prev">Previous pest occurrence</label>
+            <select class="form-select" id="pest-prev">
+              <option>None</option><option>Light</option><option>Moderate</option><option>Severe</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pest-density">Crop density</label>
+            <select class="form-select" id="pest-density">
+              <option>Low</option><option>Medium</option><option>High</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="pest-water">Nearby water body?</label>
+            <select class="form-select" id="pest-water">
+              <option>No</option><option>Yes — within 500m</option><option>Yes — within 100m</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="pest-submit-btn" onclick="runPest(this)">
+          <span class="btn-text">🔍 Assess Pest Risk</span>
+          <span class="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="col-lg-6">
+      <div class="result-card" id="pest-result">
+        <div class="result-label">Risk Assessment</div>
+
+        <!-- SVG Gauge -->
+        <div class="risk-meter">
+          <div class="risk-arc">
+            <svg viewBox="0 0 180 100" aria-hidden="true">
+              <defs>
+                <linearGradient id="riskGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%"   stop-color="#4c9c6e"/>
+                  <stop offset="50%"  stop-color="#e8a030"/>
+                  <stop offset="100%" stop-color="#c0392b"/>
+                </linearGradient>
+              </defs>
+              <path d="M15 90 A75 75 0 0 1 165 90" fill="none" stroke="#e8e8e0" stroke-width="14" stroke-linecap="round"/>
+              <path id="risk-arc-fill" d="M15 90 A75 75 0 0 1 165 90" fill="none" stroke="url(#riskGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="235" stroke-dashoffset="235"/>
+              <line id="risk-needle" x1="90" y1="90" x2="90" y2="25" stroke="var(--text-dark)" stroke-width="2.5" stroke-linecap="round" transform-origin="90 90" transform="rotate(0,90,90)"/>
+              <circle cx="90" cy="90" r="5" fill="var(--text-dark)"/>
+            </svg>
+            <div class="risk-label-center">
+              <div class="risk-level-text" id="pest-risk-level">—</div>
+              <div style="font-size:11px;color:var(--text-muted);">Risk Level</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-sub" id="pest-sub" style="text-align:center;">—</div>
+        <hr class="divider"/>
+        <div class="section-title">Identified Pest Threats</div>
+        <div class="tag-list" id="pest-threats"></div>
+        <hr class="divider"/>
+        <div class="section-title">Recommended Actions</div>
+        <ul id="pest-actions" style="font-size:13px;color:var(--text-mid);line-height:2.2;padding-left:18px;"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Market Price Prediction — AgroSense{% endblock %}
+{% block meta_description %}LSTM-based commodity price forecast for the next 7–30 days to plan your crop selling strategy.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
+  <h2>📈 Market Price Prediction</h2>
+  <p>LSTM-based commodity price forecast for next 30 days</p>
+</div>
+
+<div class="content-wrap">
+  <div class="row g-4">
+
+    <!-- ── INPUT ── -->
+    <div class="col-lg-5">
+      <div class="form-card">
+        <h4>🏪 Market Selection</h4>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="mkt-crop">Crop / Commodity</label>
+            <select class="form-select" id="mkt-crop">
+              <option>Rice (Common)</option><option>Wheat</option><option>Maize</option><option>Onion</option>
+              <option>Tomato</option><option>Potato</option><option>Soybean</option><option>Cotton</option><option>Groundnut</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="mkt-market">Market / APMC</label>
+            <select class="form-select" id="mkt-market">
+              <option>Delhi (Azadpur)</option><option>Mumbai (Vashi)</option><option>Bengaluru (APMC)</option>
+              <option>Chennai (Koyambedu)</option><option>Hyderabad</option><option>Pune</option><option>Kolkata</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="mkt-period">Forecast Period</label>
+            <select class="form-select" id="mkt-period">
+              <option value="7">7 Days</option>
+              <option value="14" selected>14 Days</option>
+              <option value="30">30 Days</option>
+            </select>
+          </div>
+        </div>
+
+        <hr class="divider"/>
+        <h4>📊 Current Market Info</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="mkt-current">Current Price (₹/quintal)</label>
+            <input type="number" class="form-control" id="mkt-current" value="2100"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="mkt-season2">Season</label>
+            <select class="form-select" id="mkt-season2">
+              <option>Kharif (harvest)</option><option>Rabi (harvest)</option><option>Off-season</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="mkt-submit-btn" onclick="runMarket(this)">
+          <span class="btn-text">📈 Forecast Prices</span>
+          <span class="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="col-lg-7">
+      <div class="result-card" id="market-result">
+        <div class="result-label">Price Forecast</div>
+        <div class="metric-row" id="mkt-metrics" style="margin-bottom:8px;"></div>
+        <hr class="divider"/>
+        <div class="section-title">Price Trend Chart (₹ / quintal)</div>
+        <div class="chart-wrap">
+          <svg id="market-chart" class="chart-svg" style="height:180px;" aria-label="Price trend line chart"></svg>
+        </div>
+        <hr class="divider"/>
+        <div class="section-title">Market Insights</div>
+        <div id="mkt-insights" style="font-size:14px;color:var(--text-mid);line-height:1.7;"></div>
+        <hr class="divider"/>
+        <div class="section-title">Best Selling Window</div>
+        <div id="mkt-sell-window" class="tag-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

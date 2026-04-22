@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Irrigation — AgroSense{% endblock %}
+{% block meta_description %}Precision water scheduling based on soil moisture, crop type, and weather forecast using a Decision Tree model.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
+  <h2>💧 Smart Irrigation</h2>
+  <p>Precision water scheduling based on soil and weather data</p>
+</div>
+
+<div class="content-wrap">
+  <div class="row g-4">
+
+    <!-- ── INPUT ── -->
+    <div class="col-lg-6">
+      <div class="form-card">
+        <h4>🌱 Crop &amp; Soil Data</h4>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="irr-crop">Crop Type</label>
+            <select class="form-select" id="irr-crop">
+              <option>Rice</option><option>Wheat</option><option>Maize</option>
+              <option>Cotton</option><option>Sugarcane</option><option>Tomato</option><option>Potato</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="irr-moisture-range">Soil Moisture — %</label>
+            <div class="range-row">
+              <input id="irr-moisture-range" type="range" min="10" max="90" value="35" oninput="rv(this,'irr-moisture')"/>
+              <span class="range-val" id="irr-moisture">35</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="irr-stage">Crop Stage</label>
+            <select class="form-select" id="irr-stage">
+              <option>Germination</option><option>Vegetative</option><option>Flowering</option>
+              <option>Fruiting</option><option>Maturity</option>
+            </select>
+          </div>
+        </div>
+
+        <hr class="divider"/>
+        <h4>🌤️ Weather Forecast</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="irr-temp-range">Temperature — °C</label>
+            <div class="range-row">
+              <input id="irr-temp-range" type="range" min="15" max="45" value="32" oninput="rv(this,'irr-temp')"/>
+              <span class="range-val" id="irr-temp">32</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="irr-hum-range">Humidity — %</label>
+            <div class="range-row">
+              <input id="irr-hum-range" type="range" min="20" max="95" value="55" oninput="rv(this,'irr-hum')"/>
+              <span class="range-val" id="irr-hum">55</span>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="irr-rain-range">Expected Rainfall next 3 days — mm</label>
+            <div class="range-row">
+              <input id="irr-rain-range" type="range" min="0" max="80" value="5" oninput="rv(this,'irr-rain')"/>
+              <span class="range-val" id="irr-rain">5</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="irr-submit-btn" onclick="runIrrigation(this)">
+          <span class="btn-text">💧 Get Irrigation Plan</span>
+          <span class="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="col-lg-6">
+      <div class="result-card" id="irr-result">
+        <div class="result-label">Irrigation Decision</div>
+        <div class="result-value" id="irr-decision" style="font-size:28px;">—</div>
+        <div class="result-sub"   id="irr-sub">—</div>
+        <hr class="divider"/>
+        <div class="section-title">Water Requirement Breakdown</div>
+        <div class="water-visual" id="water-bars"></div>
+        <div class="metric-row"   id="irr-metrics"></div>
+        <hr class="divider"/>
+        <div class="section-title">Irrigation Schedule (next 7 days)</div>
+        <div id="irr-schedule" style="font-size:13px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

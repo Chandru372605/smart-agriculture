@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Yield Prediction — AgroSense{% endblock %}
+{% block meta_description %}Predict harvest yield in tonnes per hectare before sowing season using an XGBoost model.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
+  <h2>📊 Yield Prediction</h2>
+  <p>Predict harvest yield before planting season</p>
+</div>
+
+<div class="content-wrap">
+  <div class="row g-4">
+
+    <!-- ── INPUT ── -->
+    <div class="col-lg-6">
+      <div class="form-card">
+        <h4>🌾 Farm Details</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="yd-crop">Crop</label>
+            <select class="form-select" id="yd-crop">
+              <option>Rice</option><option>Wheat</option><option>Maize</option><option>Cotton</option>
+              <option>Sugarcane</option><option>Soybean</option><option>Groundnut</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="yd-season">Season</label>
+            <select class="form-select" id="yd-season">
+              <option>Kharif</option><option>Rabi</option><option>Zaid</option><option>Whole Year</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="yd-state">State / Region</label>
+            <select class="form-select" id="yd-state">
+              <option>Punjab</option><option>Uttar Pradesh</option><option>Maharashtra</option>
+              <option>Andhra Pradesh</option><option>West Bengal</option><option>Karnataka</option><option>Rajasthan</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="yd-area">Area — hectares</label>
+            <input type="number" class="form-control" id="yd-area" value="5" min="0.5" max="500"/>
+          </div>
+        </div>
+
+        <hr class="divider"/>
+        <h4>🌧️ Input Parameters</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="yd-rain-range">Rainfall — mm</label>
+            <div class="range-row">
+              <input id="yd-rain-range" type="range" min="100" max="3000" value="900" oninput="rv(this,'yd-rain')"/>
+              <span class="range-val" id="yd-rain">900</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="yd-fert-range">Fertiliser — kg/ha</label>
+            <div class="range-row">
+              <input id="yd-fert-range" type="range" min="0" max="300" value="120" oninput="rv(this,'yd-fert')"/>
+              <span class="range-val" id="yd-fert">120</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="yd-irr">Irrigation level</label>
+            <select class="form-select" id="yd-irr">
+              <option>Rainfed</option><option>Partially Irrigated</option><option>Fully Irrigated</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="yd-pest">Pesticide use</label>
+            <select class="form-select" id="yd-pest">
+              <option>Organic</option><option>Moderate</option><option>High</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="yield-submit-btn" onclick="runYield(this)">
+          <span class="btn-text">📊 Predict Yield</span>
+          <span class="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="col-lg-6">
+      <div class="result-card" id="yield-result">
+        <div class="result-label">Predicted Yield</div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <div class="result-value" id="yield-val">—</div>
+          <div style="font-size:16px;color:var(--text-muted);">tonnes/ha</div>
+        </div>
+        <div class="result-sub" id="yield-sub">—</div>
+        <div class="confidence-bar-wrap">
+          <div class="confidence-bar"><div class="confidence-fill" id="yield-bar" style="width:0%"></div></div>
+        </div>
+        <hr class="divider"/>
+        <div class="metric-row" id="yield-metrics"></div>
+        <hr class="divider"/>
+        <div class="section-title">Yield vs Regional Average</div>
+        <div class="chart-wrap" id="yield-chart-wrap" style="height:160px;display:flex;align-items:flex-end;gap:12px;padding:16px;"></div>
+        <hr class="divider"/>
+        <div class="section-title">Improvement Tips</div>
+        <ul id="yield-tips" style="font-size:13px;color:var(--text-mid);line-height:2;padding-left:18px;"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

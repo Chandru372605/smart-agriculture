@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}AgroSense — Smart Agriculture AI{% endblock %}
+{% block meta_description %}8 integrated AI/ML modules to help farmers make data-driven decisions — from soil analysis to market price prediction.{% endblock %}
+
+{% block content %}
+<!-- ══════════════════════════════════════
+     HERO
+══════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-eyebrow">🌿 AI-Powered Smart Agriculture</div>
+  <h1>Farm Smarter,<br/><em>Grow Better</em></h1>
+  <p class="hero-sub">8 integrated AI/ML modules to help farmers make data-driven decisions — from soil to market.</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><span class="hero-stat-num">8</span><span class="hero-stat-label">AI Modules</span></div>
+    <div class="hero-stat"><span class="hero-stat-num">22</span><span class="hero-stat-label">Crops Covered</span></div>
+    <div class="hero-stat"><span class="hero-stat-num">38</span><span class="hero-stat-label">Diseases Detected</span></div>
+    <div class="hero-stat"><span class="hero-stat-num">95%</span><span class="hero-stat-label">Avg. Accuracy</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODULE GRID
+══════════════════════════════════════ -->
+<div class="module-grid">
+  <a class="module-card" href="{{ url_for('crop_recommendation') }}">
+    <div class="mod-icon green">🌾</div>
+    <h3>Crop Recommendation</h3>
+    <p>Enter soil nutrients, climate data and get the optimal crop for your land.</p>
+    <span class="mod-tag">Random Forest</span>
+  </a>
+  <a class="module-card" href="{{ url_for('disease_detection') }}">
+    <div class="mod-icon earth">🔬</div>
+    <h3>Disease Detection</h3>
+    <p>Upload a leaf photo to instantly diagnose plant diseases and get treatment advice.</p>
+    <span class="mod-tag">CNN · ResNet-50</span>
+  </a>
+  <a class="module-card" href="{{ url_for('irrigation') }}">
+    <div class="mod-icon blue">💧</div>
+    <h3>Smart Irrigation</h3>
+    <p>Precision irrigation scheduling based on soil moisture, crop type and weather.</p>
+    <span class="mod-tag">Decision Tree</span>
+  </a>
+  <a class="module-card" href="{{ url_for('yield_prediction') }}">
+    <div class="mod-icon green">📊</div>
+    <h3>Yield Prediction</h3>
+    <p>Predict harvest yield in tonnes/hectare before sowing using historical models.</p>
+    <span class="mod-tag">XGBoost</span>
+  </a>
+  <a class="module-card" href="{{ url_for('crop_rotation') }}">
+    <div class="mod-icon amber">🔄</div>
+    <h3>Crop Rotation</h3>
+    <p>Plan a 3-season rotation strategy to preserve soil health and break pest cycles.</p>
+    <span class="mod-tag">Rule-based + RF</span>
+  </a>
+  <a class="module-card" href="{{ url_for('pest_risk') }}">
+    <div class="mod-icon earth">🐛</div>
+    <h3>Pest Risk Prediction</h3>
+    <p>Assess risk of pest infestation based on season, region, and crop conditions.</p>
+    <span class="mod-tag">Logistic Regression</span>
+  </a>
+  <a class="module-card" href="{{ url_for('profit_estimator') }}">
+    <div class="mod-icon amber">💰</div>
+    <h3>Farm Profit Estimator</h3>
+    <p>Calculate expected revenue, costs, and net profit before planting season.</p>
+    <span class="mod-tag">Linear Regression</span>
+  </a>
+  <a class="module-card" href="{{ url_for('market_price') }}">
+    <div class="mod-icon blue">📈</div>
+    <h3>Market Price Prediction</h3>
+    <p>Forecast commodity prices for the next 7–30 days to plan selling strategy.</p>
+    <span class="mod-tag">LSTM · Time Series</span>
+  </a>
+</div>
+{% endblock %}

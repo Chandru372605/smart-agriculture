@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Crop Rotation — AgroSense{% endblock %}
+{% block meta_description %}Plan a 3-season crop rotation strategy to preserve soil health and break pest cycles using rule-based and ML models.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
+  <h2>🔄 Crop Rotation Recommendation</h2>
+  <p>Plan seasonal rotation to maintain soil health</p>
+</div>
+
+<div class="content-wrap">
+  <div class="row g-4">
+
+    <!-- ── INPUT ── -->
+    <div class="col-lg-5">
+      <div class="form-card">
+        <h4>🌱 Current Farm Info</h4>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label" for="rot-current">Current / Last Crop</label>
+            <select class="form-select" id="rot-current">
+              <option>Rice</option><option>Wheat</option><option>Maize</option><option>Cotton</option>
+              <option>Sugarcane</option><option>Soybean</option><option>Groundnut</option><option>Chickpea</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="rot-soil">Soil Type</label>
+            <select class="form-select" id="rot-soil">
+              <option>Loamy</option><option>Sandy Loam</option><option>Clay</option>
+              <option>Black Cotton</option><option>Alluvial</option><option>Red Laterite</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="rot-region">Region / Agro-Climate</label>
+            <select class="form-select" id="rot-region">
+              <option>Indo-Gangetic Plain</option><option>Deccan Plateau</option><option>Coastal Region</option>
+              <option>Arid/Semi-Arid</option><option>Hill Region</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="rot-n">Nitrogen status</label>
+            <select class="form-select" id="rot-n">
+              <option>Low</option><option>Medium</option><option>High</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="rot-pest-hist">Pest History</label>
+            <select class="form-select" id="rot-pest-hist">
+              <option>None</option><option>Mild</option><option>Severe</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="rot-submit-btn" onclick="runRotation(this)">
+          <span class="btn-text">🔄 Get Rotation Plan</span>
+          <span class="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="col-lg-7">
+      <div class="result-card" id="rotation-result">
+        <div class="result-label">3-Season Rotation Plan</div>
+        <div class="rotation-chain" id="rotation-chain"></div>
+        <hr class="divider"/>
+        <div class="section-title">Benefits of This Rotation</div>
+        <div class="tag-list" id="rotation-benefits"></div>
+        <hr class="divider"/>
+        <div class="section-title">Season-by-Season Notes</div>
+        <div id="rotation-notes" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

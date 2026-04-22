@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Crop Recommendation — AgroSense{% endblock %}
+{% block meta_description %}Enter soil nutrients and climate data to get the optimal crop recommendation powered by a Random Forest classifier.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
+  <h2>🌾 Crop Recommendation</h2>
+  <p>Enter your soil parameters and climate conditions</p>
+</div>
+
+<div class="content-wrap">
+  <div class="row g-4">
+
+    <!-- ── INPUT FORM ── -->
+    <div class="col-lg-6">
+      <div class="form-card">
+        <h4>🧪 Soil Nutrients</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="crop-n-range">Nitrogen (N) — kg/ha</label>
+            <div class="range-row">
+              <input id="crop-n-range" type="range" min="0" max="140" value="60" oninput="rv(this,'crop-n')"/>
+              <span class="range-val" id="crop-n">60</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="crop-p-range">Phosphorus (P) — kg/ha</label>
+            <div class="range-row">
+              <input id="crop-p-range" type="range" min="5" max="145" value="45" oninput="rv(this,'crop-p')"/>
+              <span class="range-val" id="crop-p">45</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="crop-k-range">Potassium (K) — kg/ha</label>
+            <div class="range-row">
+              <input id="crop-k-range" type="range" min="5" max="205" value="45" oninput="rv(this,'crop-k')"/>
+              <span class="range-val" id="crop-k">45</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="crop-ph-range">Soil pH</label>
+            <div class="range-row">
+              <input id="crop-ph-range" type="range" min="35" max="100" value="65" step="1" oninput="rv(this,'crop-ph',0.1,true)"/>
+              <span class="range-val" id="crop-ph">6.5</span>
+            </div>
+          </div>
+        </div>
+
+        <hr class="divider"/>
+        <h4>🌡️ Climate Conditions</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="crop-temp-range">Temperature — °C</label>
+            <div class="range-row">
+              <input id="crop-temp-range" type="range" min="8" max="45" value="26" oninput="rv(this,'crop-temp')"/>
+              <span class="range-val" id="crop-temp">26</span>
+            </div>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="crop-hum-range">Humidity — %</label>
+            <div class="range-row">
+              <input id="crop-hum-range" type="range" min="10" max="100" value="70" oninput="rv(this,'crop-hum')"/>
+              <span class="range-val" id="crop-hum">70</span>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="crop-rain-range">Rainfall — mm</label>
+            <div class="range-row">
+              <input id="crop-rain-range" type="range" min="20" max="300" value="120" oninput="rv(this,'crop-rain')"/>
+              <span class="range-val" id="crop-rain">120</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="crop-submit-btn" onclick="runCropRecommend(this)">
+          <span class="btn-text">🔍 Get Recommendation</span>
+          <span class="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="col-lg-6">
+      <div class="result-card" id="crop-result">
+        <div class="result-label">Recommended Crop</div>
+        <div class="result-value" id="crop-result-name">—</div>
+        <div class="result-sub"   id="crop-result-conf">—</div>
+        <div class="confidence-bar-wrap">
+          <div class="confidence-bar"><div class="confidence-fill" id="crop-conf-bar" style="width:0%"></div></div>
+        </div>
+        <hr class="divider"/>
+        <div class="section-title">Suitable Alternatives</div>
+        <div class="tag-list" id="crop-alts"></div>
+        <hr class="divider"/>
+        <div class="section-title">Soil Health Indicators</div>
+        <div class="metric-row" id="crop-metrics"></div>
+        <hr class="divider"/>
+        <div class="section-title">Growing Tips</div>
+        <p id="crop-tips" style="font-size:14px;color:var(--text-mid);line-height:1.7;"></p>
+      </div>
+
+      <div class="form-card" style="margin-top:16px;">
+        <h4>ℹ️ How it works</h4>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.7;">
+          A <strong>Random Forest classifier</strong> trained on 2,200 soil &amp; climate samples predicts the best
+          crop for your conditions. The model achieved <strong>99.1% accuracy</strong> on test data across 22 crop types.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

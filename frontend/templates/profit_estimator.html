@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Farm Profit Estimator — AgroSense{% endblock %}
+{% block meta_description %}Calculate expected revenue, input costs, and net farm profit before planting season using a linear regression model.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
+  <h2>💰 Farm Profit Estimator</h2>
+  <p>Calculate expected revenue, costs and net profit</p>
+</div>
+
+<div class="content-wrap">
+  <div class="row g-4">
+
+    <!-- ── INPUT ── -->
+    <div class="col-lg-5">
+      <div class="form-card">
+        <h4>🌾 Crop &amp; Yield</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="pr-crop">Crop</label>
+            <select class="form-select" id="pr-crop">
+              <option>Rice</option><option>Wheat</option><option>Maize</option>
+              <option>Cotton</option><option>Sugarcane</option><option>Soybean</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pr-area">Area (hectares)</label>
+            <input type="number" class="form-control" id="pr-area" value="5" min="0.5"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pr-yield">Expected Yield (t/ha)</label>
+            <input type="number" class="form-control" id="pr-yield" value="4.2" step="0.1"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pr-price">Selling Price (₹/tonne)</label>
+            <input type="number" class="form-control" id="pr-price" value="18000"/>
+          </div>
+        </div>
+
+        <hr class="divider"/>
+        <h4>💸 Input Costs (₹ per hectare)</h4>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label" for="pr-seed">Seed Cost</label>
+            <input type="number" class="form-control" id="pr-seed" value="3500"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pr-fert">Fertiliser</label>
+            <input type="number" class="form-control" id="pr-fert" value="5000"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pr-labour">Labour</label>
+            <input type="number" class="form-control" id="pr-labour" value="8000"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pr-irr2">Irrigation</label>
+            <input type="number" class="form-control" id="pr-irr2" value="2500"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pr-pest2">Pesticide</label>
+            <input type="number" class="form-control" id="pr-pest2" value="2000"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label" for="pr-misc">Misc. Costs</label>
+            <input type="number" class="form-control" id="pr-misc" value="1000"/>
+          </div>
+        </div>
+
+        <button class="btn-submit" id="profit-submit-btn" onclick="runProfit(this)">
+          <span class="btn-text">💰 Calculate Profit</span>
+          <span class="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── RESULTS ── -->
+    <div class="col-lg-7">
+      <div class="result-card" id="profit-result">
+        <div class="result-label">Profit Summary</div>
+        <div class="profit-kpi" id="profit-kpis"></div>
+        <hr class="divider"/>
+        <div class="section-title">Cost Breakdown</div>
+        <div class="donut-wrap">
+          <svg id="donut-svg" width="140" height="140" viewBox="0 0 140 140" style="flex-shrink:0;" aria-hidden="true"></svg>
+          <div class="donut-legend" id="donut-legend"></div>
+        </div>
+        <hr class="divider"/>
+        <div class="section-title">Profitability Analysis</div>
+        <div id="profit-analysis" style="font-size:14px;color:var(--text-mid);line-height:1.7;background:var(--green-pale);padding:14px;border-radius:var(--radius-sm);"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
