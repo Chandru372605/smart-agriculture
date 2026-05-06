@@ -6,13 +6,18 @@ from flask import Blueprint, request, jsonify
 import numpy as np
 from backend.utils.helpers import load_model, load_keras_model, err, safe_float, fmt_inr
 from backend.config import Config
+from backend.models.db_models import log_prediction
 
 market_bp = Blueprint('market', __name__)
 
 MARKET_PREMIUM = {
-    'Delhi (Azadpur)':   1.08, 'Mumbai (Vashi)':   1.12, 'Bengaluru (APMC)': 1.05,
-    'Chennai (Koyambedu)':1.03,'Hyderabad':        1.04, 'Pune':             1.06,
-    'Kolkata':           1.02,
+    'Delhi (Azadpur)':    1.08,
+    'Mumbai (Vashi)':     1.12,
+    'Bengaluru (APMC)':   1.05,
+    'Chennai (Koyambedu)':1.03,
+    'Hyderabad':          1.04,
+    'Pune':               1.06,
+    'Kolkata':            1.02,
 }
 
 INSIGHTS_DB = {
@@ -37,34 +42,31 @@ def forecast():
     lstm   = load_keras_model(Config.MARKET_MODEL_PATH, 'mkt_lstm')
 
     try:
-        crop_raw  = data.get('crop',   'Rice (Common)')
-        market    = data.get('market', 'Delhi (Azadpur)')
-        n_days    = safe_float(data, 'forecast_days', 14)
-        curr_p    = safe_float(data, 'current_price', 2100)
-        season    = data.get('season', 'Kharif (harvest)')
-        crop      = crop_raw.split(' (')[0]   # strip parenthetical
+        crop_raw = data.get('crop',   'Rice (Common)')
+        market   = data.get('market', 'Delhi (Azadpur)')
+        n_days   = safe_float(data, 'forecast_days', 14)
+        curr_p   = safe_float(data, 'current_price', 2100)
+        season   = data.get('season', 'Kharif (harvest)')
+        crop     = crop_raw.split(' (')[0]   # strip parenthetical
 
-        premium   = MARKET_PREMIUM.get(market, 1.0)
-        n_days    = int(max(7, min(30, n_days)))
+        premium  = MARKET_PREMIUM.get(market, 1.0)
+        n_days   = int(max(7, min(30, n_days)))
 
         if lstm is not None and scaler is not None and meta is not None:
-            # ── Real LSTM inference ───────────────────────────────────
+            # ── Real LSTM inference ──────────────────────────────────────
             crop_names = meta.get('crops', [])
             seq_len    = meta.get('seq_len', 30)
             n_crops    = len(crop_names)
 
-            # Find crop index
             crop_idx_map = {c.split(' (')[0].lower(): i for i, c in enumerate(crop_names)}
-            c_i = crop_idx_map.get(crop.lower(), 0)
+            c_i    = crop_idx_map.get(crop.lower(), 0)
             c_code = c_i / max(n_crops - 1, 1)
 
-            # Simulate a plausible 30-day history around current price
-            rng   = np.random.default_rng(hash(crop + market) % (2**31))
-            hist  = curr_p + rng.normal(0, curr_p * 0.02, seq_len).cumsum() * 0.3
-            hist  = np.clip(hist, curr_p * 0.7, curr_p * 1.3)
+            rng  = np.random.default_rng(hash(crop + market) % (2**31))
+            hist = curr_p + rng.normal(0, curr_p * 0.02, seq_len).cumsum() * 0.3
+            hist = np.clip(hist, curr_p * 0.7, curr_p * 1.3)
             hist_s = scaler.transform(hist.reshape(-1, 1)).flatten()
 
-            # Roll-forward prediction for n_days
             prices_pred = [float(curr_p)]
             window = hist_s.copy()
             for _ in range(n_days):
@@ -78,10 +80,10 @@ def forecast():
                 window = np.append(window, scaler.transform([[nxt]])[0][0])
 
         else:
-            # ── Fallback: simple trend simulation ────────────────────
-            rng     = np.random.default_rng(42)
-            trend   = rng.uniform(-0.3, 0.8)   # % daily drift
-            vol     = curr_p * 0.012
+            # ── Fallback: simple trend simulation ───────────────────────
+            rng    = np.random.default_rng(42)
+            trend  = rng.uniform(-0.3, 0.8)
+            vol    = curr_p * 0.012
             prices_pred = [curr_p]
             p = curr_p
             for i in range(n_days):
@@ -97,7 +99,7 @@ def forecast():
         max_p    = round(max(prices_pred))
         best_day = int(np.argmax(prices_pred))
 
-        metrics  = [
+        metrics = [
             {'val': fmt_inr(int(curr_p)),  'lbl': 'Current Price'},
             {'val': fmt_inr(int(final_p)), 'lbl': f'Day {n_days} Forecast',
              'color': 'var(--green-soft)' if change >= 0 else 'var(--danger)'},
@@ -106,7 +108,6 @@ def forecast():
             {'val': fmt_inr(max_p),        'lbl': f'Peak (Day {best_day})'},
         ]
 
-        # Selling window tags
         if change > 0:
             sell_tags = [
                 {'text': f'📅 Best window: Day {best_day}',    'cls': 'green'},
@@ -121,6 +122,8 @@ def forecast():
 
         insight = INSIGHTS_DB.get(crop, f'{crop} prices depend on seasonal demand and arrivals in key markets.')
 
+        log_prediction('market', f'{crop} | {n_days}d forecast',
+                       f'Forecast ₹{int(prices_pred[-1])}', inputs=data)
         return jsonify({
             'prices':    [int(p) for p in prices_pred],
             'metrics':   metrics,

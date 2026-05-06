@@ -20,6 +20,53 @@
   <!-- AgroSense Stylesheet -->
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" />
 
+  <style>
+    /* ── Mobile nav ── */
+    .nav-hamburger {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      flex-direction: column;
+      gap: 5px;
+      padding: 6px;
+    }
+    .nav-hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--green-deep);
+      border-radius: 2px;
+      transition: all .25s;
+    }
+    @media (max-width: 900px) {
+      .nav-inner { flex-wrap: wrap; position: relative; }
+      .nav-hamburger { display: flex; margin-left: auto; }
+      .nav-links {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        background: var(--white);
+        border-top: 1px solid var(--green-light);
+        padding: 8px 0;
+        gap: 0;
+      }
+      .nav-links.open { display: flex; }
+      .nav-links .nav-item {
+        padding: 10px 20px;
+        border-radius: 0;
+        width: 100%;
+        font-size: 14px;
+      }
+    }
+    /* ── Active nav item ── */
+    .nav-item.active {
+      background: var(--green-pale) !important;
+      color: var(--green-deep) !important;
+      font-weight: 600;
+    }
+  </style>
+
   {% block head_extra %}{% endblock %}
 </head>
 
@@ -33,24 +80,52 @@
       <a class="brand" href="{{ url_for('index') }}">
         <span class="brand-dot"></span>AgroSense
       </a>
-      <a id="nav-home" class="nav-item" href="{{ url_for('index') }}"><span class="nav-icon">🏠</span>Home</a>
-      <a id="nav-crop" class="nav-item" href="{{ url_for('crop_recommendation') }}"><span class="nav-icon">🌾</span>Crop
-        Rec.</a>
-      <a id="nav-disease" class="nav-item" href="{{ url_for('disease_detection') }}"><span
-          class="nav-icon">🔬</span>Disease</a>
-      <a id="nav-irrigation" class="nav-item" href="{{ url_for('irrigation') }}"><span
-          class="nav-icon">💧</span>Irrigation</a>
-      <a id="nav-yield" class="nav-item" href="{{ url_for('yield_prediction') }}"><span
-          class="nav-icon">📊</span>Yield</a>
-      <a id="nav-rotation" class="nav-item" href="{{ url_for('crop_rotation') }}"><span
-          class="nav-icon">🔄</span>Rotation</a>
-      <a id="nav-pest" class="nav-item" href="{{ url_for('pest_risk') }}"><span class="nav-icon">🐛</span>Pest Risk</a>
-      <a id="nav-profit" class="nav-item" href="{{ url_for('profit_estimator') }}"><span
-          class="nav-icon">💰</span>Profit</a>
-      <a id="nav-market" class="nav-item" href="{{ url_for('market_price') }}"><span
-          class="nav-icon">📈</span>Market</a>
+
+      <!-- Hamburger (mobile) -->
+      <button class="nav-hamburger" id="navHamburger" aria-label="Toggle navigation"
+              onclick="document.getElementById('navLinks').classList.toggle('open')">
+        <span></span><span></span><span></span>
+      </button>
+
+      <!-- Nav links -->
+      <div class="nav-links" id="navLinks">
+        <a id="nav-home"       class="nav-item" href="{{ url_for('index') }}"><span class="nav-icon">🏠</span>Home</a>
+        <a id="nav-crop"       class="nav-item" href="{{ url_for('crop_recommendation') }}"><span class="nav-icon">🌾</span>Crop Rec.</a>
+        <a id="nav-disease"    class="nav-item" href="{{ url_for('disease_detection') }}"><span class="nav-icon">🔬</span>Disease</a>
+        <a id="nav-irrigation" class="nav-item" href="{{ url_for('irrigation') }}"><span class="nav-icon">💧</span>Irrigation</a>
+        <a id="nav-yield"      class="nav-item" href="{{ url_for('yield_prediction') }}"><span class="nav-icon">📊</span>Yield</a>
+        <a id="nav-rotation"   class="nav-item" href="{{ url_for('crop_rotation') }}"><span class="nav-icon">🔄</span>Rotation</a>
+        <a id="nav-pest"       class="nav-item" href="{{ url_for('pest_risk') }}"><span class="nav-icon">🐛</span>Pest Risk</a>
+        <a id="nav-profit"     class="nav-item" href="{{ url_for('profit_estimator') }}"><span class="nav-icon">💰</span>Profit</a>
+        <a id="nav-market"     class="nav-item" href="{{ url_for('market_price') }}"><span class="nav-icon">📈</span>Market</a>
+        <a id="nav-history"    class="nav-item" href="{{ url_for('history') }}"><span class="nav-icon">📋</span>History</a>
+      </div>
     </div>
   </nav>
+
+  <!-- Active nav state script -->
+  <script>
+    (function() {
+      const path = window.location.pathname;
+      const MAP = {
+        '/':                    'nav-home',
+        '/crop-recommendation': 'nav-crop',
+        '/disease-detection':   'nav-disease',
+        '/irrigation':          'nav-irrigation',
+        '/yield-prediction':    'nav-yield',
+        '/crop-rotation':       'nav-rotation',
+        '/pest-risk':           'nav-pest',
+        '/profit-estimator':    'nav-profit',
+        '/market-price':        'nav-market',
+        '/history':             'nav-history',
+      };
+      const id = MAP[path];
+      if (id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('active');
+      }
+    })();
+  </script>
 
   <!-- TOAST CONTAINER -->
   <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>

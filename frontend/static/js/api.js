@@ -162,12 +162,17 @@ async function runIrrigation(btn) {
   try {
     const payload = {
       crop:               document.getElementById('irr-crop').value,
-      soil_moisture:      parseFloat(document.getElementById('irr-moisture').textContent),
+      soil_moisture:      parseFloat(document.getElementById('irr-moisture-range')?.value
+                            ?? document.getElementById('irr-moisture')?.textContent ?? 35),
       stage:              document.getElementById('irr-stage').value,
-      temperature:        parseFloat(document.getElementById('irr-temp').textContent),
-      humidity:           parseFloat(document.getElementById('irr-hum').textContent),
-      rainfall_forecast:  parseFloat(document.getElementById('irr-rain').textContent),
+      temperature:        parseFloat(document.getElementById('irr-temp-range')?.value
+                            ?? document.getElementById('irr-temp')?.textContent ?? 32),
+      humidity:           parseFloat(document.getElementById('irr-hum-range')?.value
+                            ?? document.getElementById('irr-hum')?.textContent  ?? 55),
+      rainfall_forecast:  parseFloat(document.getElementById('irr-rain-range')?.value
+                            ?? document.getElementById('irr-rain')?.textContent ?? 5),
     };
+
 
     const data = await apiPost('/irrigation/plan', payload);
 

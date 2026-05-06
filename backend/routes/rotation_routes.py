@@ -6,31 +6,32 @@ from flask import Blueprint, request, jsonify
 import numpy as np
 from backend.utils.helpers import load_model, err
 from backend.config import Config
+from backend.models.db_models import log_prediction
 
 rotation_bp = Blueprint('rotation', __name__)
 
 CROP_ICONS = {
-    'Rice':'🌾','Wheat':'🌾','Maize':'🌽','Cotton':'🌿','Sugarcane':'🎋',
-    'Soybean':'🌱','Groundnut':'🥜','Chickpea':'🫘','Mustard':'🌼',
-    'Onion':'🧅','Potato':'🥔','Sorghum':'🌾','Lentil':'🫘',
+    'Rice': '🌾', 'Wheat': '🌾', 'Maize': '🌽', 'Cotton': '🌿', 'Sugarcane': '🎋',
+    'Soybean': '🌱', 'Groundnut': '🥜', 'Chickpea': '🫘', 'Mustard': '🌼',
+    'Onion': '🧅', 'Potato': '🥔', 'Sorghum': '🌾', 'Lentil': '🫘',
 }
 
 SEASON_SEQ = ['Kharif (Jun–Oct)', 'Rabi (Nov–Mar)', 'Zaid (Mar–Jun)']
 
 ROTATION_NOTES_DB = {
-    'Chickpea': 'Legume — fixes atmospheric nitrogen (50–80 kg N/ha), greatly reducing fertiliser cost for the next season.',
-    'Wheat':    'Heavy feeder — apply split nitrogen. Residue incorporation improves organic matter.',
-    'Maize':    'Deep-rooted — breaks hardpan. Plant at 60×20 cm, apply 150 kg N/ha.',
-    'Groundnut':'Nitrogen fixer and soil brightener. Ideal post-cotton to break root rot cycle.',
-    'Soybean':  'Fix 100+ kg N/ha. Shallow roots — leave more subsoil moisture for following crop.',
-    'Mustard':  'Allelopathic to weeds. Incorporated biomass adds organic matter.',
-    'Rice':     'Flooded conditions suppress soil-borne pathogens. Ensure good drainage before next crop.',
-    'Onion':    'Biofumigant properties suppress nematodes. High value crop improves farm income.',
-    'Potato':   'Intensive feeder. Ensure 3-year gap before returning to same field.',
-    'Sorghum':  'Drought-tolerant. Excellent biomass for mulch and soil organic matter.',
-    'Cotton':   'Deep-rooted. Requires high NPK — plan fertiliser accordingly.',
-    'Lentil':   'Short-duration legume (90 days). Fixes nitrogen and leaves soil friable.',
-    'Sugarcane':'Long-duration crop — ratoon for 2–3 years to amortise establishment cost.',
+    'Chickpea':  'Legume — fixes atmospheric nitrogen (50–80 kg N/ha), greatly reducing fertiliser cost for the next season.',
+    'Wheat':     'Heavy feeder — apply split nitrogen. Residue incorporation improves organic matter.',
+    'Maize':     'Deep-rooted — breaks hardpan. Plant at 60×20 cm, apply 150 kg N/ha.',
+    'Groundnut': 'Nitrogen fixer and soil brightener. Ideal post-cotton to break root rot cycle.',
+    'Soybean':   'Fix 100+ kg N/ha. Shallow roots — leave more subsoil moisture for following crop.',
+    'Mustard':   'Allelopathic to weeds. Incorporated biomass adds organic matter.',
+    'Rice':      'Flooded conditions suppress soil-borne pathogens. Ensure good drainage before next crop.',
+    'Onion':     'Biofumigant properties suppress nematodes. High value crop improves farm income.',
+    'Potato':    'Intensive feeder. Ensure 3-year gap before returning to same field.',
+    'Sorghum':   'Drought-tolerant. Excellent biomass for mulch and soil organic matter.',
+    'Cotton':    'Deep-rooted. Requires high NPK — plan fertiliser accordingly.',
+    'Lentil':    'Short-duration legume (90 days). Fixes nitrogen and leaves soil friable.',
+    'Sugarcane': 'Long-duration crop — ratoon for 2–3 years to amortise establishment cost.',
 }
 
 BENEFIT_TAGS = {
@@ -38,7 +39,7 @@ BENEFIT_TAGS = {
     'Soybean':  ['🌿 Nitrogen Fixation', '🌱 Soil Improvement'],
     'Groundnut':['🌿 Nitrogen Fixation', '🐛 Pest Cycle Break'],
     'Mustard':  ['🌿 Weed Suppression',  '🌱 Organic Matter'],
-    'default':  ['🔄 Pest Cycle Break', '🌱 Soil Health', '💧 Moisture Management'],
+    'default':  ['🔄 Pest Cycle Break',  '🌱 Soil Health', '💧 Moisture Management'],
 }
 
 
@@ -62,20 +63,20 @@ def recommend():
             classes = list(enc.classes_)
             return classes.index(val) if val in classes else 0
 
-        c_enc  = enc_safe(encoders['current_crop'], 'current_crop', curr_crop)
-        s_enc  = enc_safe(encoders['soil_type'],    'soil_type',    soil_type)
-        r_enc  = enc_safe(encoders['region'],       'region',       region)
-        n_enc  = enc_safe(encoders['n_level'],      'n_level',      n_level)
-        p_enc  = enc_safe(encoders['pest_history'], 'pest_history', pest_history)
+        c_enc = enc_safe(encoders['current_crop'], 'current_crop', curr_crop)
+        s_enc = enc_safe(encoders['soil_type'],    'soil_type',    soil_type)
+        r_enc = enc_safe(encoders['region'],       'region',       region)
+        n_enc = enc_safe(encoders['n_level'],      'n_level',      n_level)
+        p_enc = enc_safe(encoders['pest_history'], 'pest_history', pest_history)
 
-        X          = np.array([[c_enc, s_enc, r_enc, n_enc, p_enc]])
-        next_enc   = model.predict(X)[0]
-        probas     = model.predict_proba(X)[0]
-        top_idx    = probas.argsort()[::-1][:3]
-        le_target  = encoders['next_crop']
-        crops_seq  = [le_target.classes_[i] for i in top_idx]
+        X         = np.array([[c_enc, s_enc, r_enc, n_enc, p_enc]])
+        next_enc  = model.predict(X)[0]
+        probas    = model.predict_proba(X)[0]
+        top_idx   = probas.argsort()[::-1][:3]
+        le_target = encoders['next_crop']
+        crops_seq = [le_target.classes_[i] for i in top_idx]
 
-        # Build a 3-season plan: predicted → alt → original (closing rotation)
+        # Build 3-season plan
         season1 = crops_seq[0]
         season2 = crops_seq[1] if len(crops_seq) > 1 else 'Wheat'
         season3 = curr_crop if curr_crop not in (season1, season2) else (
@@ -93,7 +94,6 @@ def recommend():
             for i, p in enumerate(plan)
         ]
 
-        # Collect benefit tags from the sequence
         benefits_set = set()
         for p in [season1, season2]:
             for tag in BENEFIT_TAGS.get(p, BENEFIT_TAGS['default']):
@@ -101,6 +101,7 @@ def recommend():
         benefits_set.update(BENEFIT_TAGS['default'])
         benefits = list(benefits_set)[:6]
 
+        log_prediction('rotation', f'{curr_crop} -> {season1} -> {season2}', season1, inputs=data)
         return jsonify({
             'plan':     plan,
             'benefits': benefits,

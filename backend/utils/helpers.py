@@ -24,17 +24,22 @@ def load_model(path: str, key: str = None):
 
 
 def load_keras_model(path: str, key: str = None):
-    """Load a Keras .keras / .h5 model with caching."""
+    """Load a Keras .keras / .h5 model with caching.
+    Returns None if TensorFlow is not installed or the file is missing.
+    """
     k = key or path
     if k not in _cache:
-        if os.path.exists(path):
-            # Import here to avoid slow TF startup on every request
-            os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')
-            os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
-            from tensorflow import keras
-            _cache[k] = keras.models.load_model(path)
-        else:
+        if not os.path.exists(path):
             _cache[k] = None
+        else:
+            try:
+                os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')
+                os.environ.setdefault('TF_ENABLE_ONEDNN_OPTS', '0')
+                from tensorflow import keras
+                _cache[k] = keras.models.load_model(path)
+            except Exception:
+                # TensorFlow not installed or model incompatible — use RF fallback
+                _cache[k] = None
     return _cache[k]
 
 

@@ -6,11 +6,12 @@ from flask import Blueprint, request, jsonify
 import numpy as np
 from backend.utils.helpers import load_model, err, safe_float
 from backend.config import Config
+from backend.models.db_models import log_prediction
 
 crop_bp = Blueprint('crop', __name__)
 
 CROP_TIPS = {
-    'rice':        'Maintain standing water 5cm deep during vegetative stage. Use split nitrogen application.',
+    'rice':        'Maintain standing water 5 cm deep during vegetative stage. Use split nitrogen application.',
     'wheat':       'Sow at 100–125 kg/ha seed rate. First irrigation at crown root initiation (21 days).',
     'maize':       'Ensure proper spacing of 60×20 cm. Apply zinc sulphate if soil pH > 7.5.',
     'cotton':      'Adopt square planting at 90×60 cm. Monitor for bollworm from 45 DAS.',
@@ -37,12 +38,12 @@ CROP_TIPS = {
 }
 
 SOIL_INDICATORS = [
-    {'key': 'ph',       'label': 'Soil pH',       'good': (6.0, 7.5), 'unit': ''},
-    {'key': 'N',        'label': 'Nitrogen',       'good': (40, 120),  'unit': ' kg/ha'},
-    {'key': 'P',        'label': 'Phosphorus',     'good': (20, 100),  'unit': ' kg/ha'},
-    {'key': 'K',        'label': 'Potassium',      'good': (20, 110),  'unit': ' kg/ha'},
-    {'key': 'humidity', 'label': 'Humidity',       'good': (40, 85),   'unit': '%'},
-    {'key': 'rainfall', 'label': 'Rainfall',       'good': (80, 250),  'unit': ' mm'},
+    {'key': 'ph',       'label': 'Soil pH',   'good': (6.0, 7.5), 'unit': ''},
+    {'key': 'N',        'label': 'Nitrogen',   'good': (40, 120),  'unit': ' kg/ha'},
+    {'key': 'P',        'label': 'Phosphorus', 'good': (20, 100),  'unit': ' kg/ha'},
+    {'key': 'K',        'label': 'Potassium',  'good': (20, 110),  'unit': ' kg/ha'},
+    {'key': 'humidity', 'label': 'Humidity',   'good': (40, 85),   'unit': '%'},
+    {'key': 'rainfall', 'label': 'Rainfall',   'good': (80, 250),  'unit': ' mm'},
 ]
 
 
@@ -50,8 +51,7 @@ SOIL_INDICATORS = [
 def recommend():
     data = request.get_json(force=True) or {}
 
-    # Load models  (lazy-cached)
-    model = load_model(Config.CROP_MODEL_PATH, 'crop_model')
+    model = load_model(Config.CROP_MODEL_PATH,  'crop_model')
     le    = load_model(Config.CROP_ENCODER_PATH, 'crop_le')
     if model is None or le is None:
         return err('Crop recommendation model not found. Run train_crop.py first.')
@@ -71,7 +71,7 @@ def recommend():
         conf    = round(float(probas.max()) * 100, 1)
 
         # Top 3 alternatives
-        top_idx  = probas.argsort()[::-1][:4]
+        top_idx   = probas.argsort()[::-1][:4]
         all_crops = le.classes_
         best_crop = all_crops[enc_idx]
         alts      = [all_crops[i].title() for i in top_idx if all_crops[i] != best_crop][:3]
@@ -86,8 +86,13 @@ def recommend():
             indicators.append({'v': f"{val}{ind['unit']} {status}", 'l': ind['label']})
 
         crop_key = best_crop.lower()
-        tips = CROP_TIPS.get(crop_key, f"Follow standard agronomic practices for {best_crop.title()} cultivation.")
+        tips = CROP_TIPS.get(crop_key, f'Follow standard agronomic practices for {best_crop.title()} cultivation.')
 
+        log_prediction('crop', f'N={N} P={P} K={K} pH={ph} rain={rain}mm',
+                       best_crop.title(),
+                       inputs={'N': N, 'P': P, 'K': K, 'temperature': temp,
+                               'humidity': hum, 'ph': ph, 'rainfall': rain},
+                       confidence=conf)
         return jsonify({
             'crop':         best_crop.title(),
             'confidence':   conf,

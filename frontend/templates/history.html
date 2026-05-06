@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Prediction History — AgroSense{% endblock %}
+{% block meta_description %}Browse, filter, and manage all AI predictions made on the AgroSense platform.{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <a class="back-btn" href="{{ url_for('index') }}">← Home</a>
+  <h2>📋 Prediction History</h2>
+  <p>All AI inferences logged · Filter · Search · Export</p>
+</div>
+
+<div class="content-wrap">
+
+  <!-- STATS ROW -->
+  <div id="statsRow" class="hist-stats-row"></div>
+
+  <!-- CONTROLS -->
+  <div class="hist-controls">
+    <input  id="histSearch"  class="form-control" type="text"   placeholder="🔍 Search results…" oninput="debounceLoad()"/>
+    <select id="histModule"  class="form-select"               onchange="loadHistory()">
+      <option value="">All Modules</option>
+      <option value="crop">🌾 Crop Recommendation</option>
+      <option value="disease">🔬 Disease Detection</option>
+      <option value="irrigation">💧 Irrigation</option>
+      <option value="yield">📊 Yield Prediction</option>
+      <option value="rotation">🔄 Crop Rotation</option>
+      <option value="pest">🐛 Pest Risk</option>
+      <option value="profit">💰 Profit Estimator</option>
+      <option value="market">📈 Market Price</option>
+    </select>
+    <select id="histSort" class="form-select" onchange="loadHistory()" style="max-width:150px">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+    </select>
+    <button class="btn-outline-danger" id="clearBtn" onclick="clearHistory()">🗑 Clear All</button>
+  </div>
+
+  <!-- TABLE -->
+  <div class="hist-table-wrap">
+    <table class="hist-table" id="histTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Module</th>
+          <th>Summary</th>
+          <th>Result</th>
+          <th>Confidence</th>
+          <th>Date &amp; Time</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="histBody">
+        <tr><td colspan="7" class="hist-empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- PAGINATION -->
+  <div class="hist-pagination" id="histPagination"></div>
+
+</div>
+
+{% block scripts_extra %}
+<style>
+.hist-stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+.hist-stat-card{background:var(--white);border-radius:var(--radius-md);border:1.5px solid var(--green-light);padding:14px 20px;flex:1;min-width:130px;text-align:center;}
+.hist-stat-card .num{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--green-mid);}
+.hist-stat-card .lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;}
+.hist-controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.hist-controls .form-control,.hist-controls .form-select{flex:1;min-width:160px;}
+.btn-outline-danger{background:none;border:1.5px solid var(--danger);color:var(--danger);border-radius:var(--radius-sm);padding:8px 16px;cursor:pointer;font-size:13px;font-family:var(--font-body);white-space:nowrap;transition:all .15s;}
+.btn-outline-danger:hover{background:var(--danger);color:#fff;}
+.hist-table-wrap{border-radius:var(--radius-lg);overflow:hidden;border:1.5px solid var(--green-light);background:var(--white);}
+.hist-table{width:100%;border-collapse:collapse;font-size:13px;}
+.hist-table thead th{background:var(--green-deep);color:#fff;padding:12px 14px;font-weight:600;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;}
+.hist-table tbody tr{border-bottom:1px solid rgba(74,133,104,0.08);transition:background .12s;}
+.hist-table tbody tr:hover{background:var(--cream);}
+.hist-table td{padding:10px 14px;vertical-align:middle;}
+.hist-empty{text-align:center;padding:40px;color:var(--text-muted);font-style:italic;}
+.mod-badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;background:var(--green-pale);color:var(--green-deep);}
+.conf-bar-wrap{width:80px;height:6px;background:#e0e8e4;border-radius:99px;overflow:hidden;display:inline-block;margin-left:6px;vertical-align:middle;}
+.conf-bar-fill{height:100%;border-radius:99px;background:var(--green-soft);}
+.del-btn{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px;transition:all .15s;}
+.del-btn:hover{background:var(--danger);color:#fff;}
+.hist-pagination{display:flex;gap:8px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.pg-btn{background:var(--cream);border:1.5px solid var(--green-light);border-radius:var(--radius-sm);padding:6px 14px;font-size:13px;cursor:pointer;color:var(--text-dark);transition:all .15s;}
+.pg-btn:hover,.pg-btn.active{background:var(--green-mid);color:#fff;border-color:var(--green-mid);}
+</style>
+<script>
+const MOD_ICONS = {
+  crop:'🌾', disease:'🔬', irrigation:'💧', yield:'📊',
+  rotation:'🔄', pest:'🐛', profit:'💰', market:'📈'
+};
+
+let currentPage = 1;
+const LIMIT = 20;
+let debTimer = null;
+function debounceLoad(){ clearTimeout(debTimer); debTimer = setTimeout(()=>{ currentPage=1; loadHistory(); }, 350); }
+
+async function loadStats(){
+  try {
+    const r = await fetch('/api/history/stats');
+    const d = await r.json();
+    const row = document.getElementById('statsRow');
+    let html = `<div class="hist-stat-card"><div class="num">${d.total}</div><div class="lbl">Total Predictions</div></div>`;
+    (d.by_module||[]).sort((a,b)=>b.count-a.count).slice(0,6).forEach(m=>{
+      html += `<div class="hist-stat-card"><div class="num">${m.count}</div><div class="lbl">${MOD_ICONS[m.module]||''} ${m.module}</div></div>`;
+    });
+    row.innerHTML = html;
+  } catch(e){ console.warn('Stats error', e); }
+}
+
+async function loadHistory(){
+  const search = document.getElementById('histSearch').value.trim();
+  const module = document.getElementById('histModule').value;
+  const sort   = document.getElementById('histSort').value;
+  const params = new URLSearchParams({ page: currentPage, limit: LIMIT, sort });
+  if (search) params.set('search', search);
+  if (module) params.set('module', module);
+
+  const tbody = document.getElementById('histBody');
+  tbody.innerHTML = '<tr><td colspan="7" class="hist-empty">Loading…</td></tr>';
+
+  try {
+    const r = await fetch('/api/history?' + params);
+    const d = await r.json();
+    if (!d.records || d.records.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="hist-empty">No predictions found. Make some predictions first!</td></tr>';
+      document.getElementById('histPagination').innerHTML = '';
+      return;
+    }
+    tbody.innerHTML = d.records.map(rec => {
+      const conf = rec.confidence !== null ? rec.confidence : null;
+      const confHtml = conf !== null
+        ? `${conf.toFixed(1)}% <span class="conf-bar-wrap"><span class="conf-bar-fill" style="width:${Math.min(conf,100)}%"></span></span>`
+        : '—';
+      return `<tr>
+        <td style="color:var(--text-muted);font-family:var(--font-mono)">${rec.id}</td>
+        <td><span class="mod-badge">${MOD_ICONS[rec.module]||''} ${rec.module}</span></td>
+        <td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${rec.summary}">${rec.summary}</td>
+        <td style="font-weight:600;color:var(--green-deep)">${rec.result}</td>
+        <td>${confHtml}</td>
+        <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:12px">${rec.created_at||'—'}</td>
+        <td><button class="del-btn" onclick="deleteOne(${rec.id})" title="Delete">✕</button></td>
+      </tr>`;
+    }).join('');
+
+    // Pagination
+    const totalPages = Math.ceil(d.total / LIMIT);
+    let pgHtml = '';
+    for (let i = 1; i <= totalPages; i++) {
+      pgHtml += `<button class="pg-btn ${i===currentPage?'active':''}" onclick="gotoPage(${i})">${i}</button>`;
+    }
+    document.getElementById('histPagination').innerHTML = pgHtml;
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="hist-empty" style="color:var(--danger)">Error loading history: ${e.message}</td></tr>`;
+  }
+}
+
+function gotoPage(n){ currentPage = n; loadHistory(); }
+
+async function deleteOne(id){
+  if (!confirm('Delete this record?')) return;
+  await fetch(`/api/history/${id}`, {method:'DELETE'});
+  loadStats();
+  loadHistory();
+}
+
+async function clearHistory(){
+  if (!confirm('Clear ALL prediction history? This cannot be undone.')) return;
+  await fetch('/api/history', {method:'DELETE'});
+  loadStats();
+  loadHistory();
+}
+
+// Init
+loadStats();
+loadHistory();
+</script>
+{% endblock %}
+{% endblock %}

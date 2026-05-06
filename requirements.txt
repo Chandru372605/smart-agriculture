@@ -12,17 +12,16 @@ pandas>=2.2.0
 numpy>=1.26.0
 joblib>=1.4.0
 
-# ── Image processing (Pillow + OpenCV for CNN route) ─
+# ── Image processing ────────────────────────────────
 Pillow>=10.0.0
 opencv-python>=4.8.0
 
-# ── Deep Learning (disease detection CNN) ───────────
+# ── Deep Learning (disease CNN + market LSTM) ────────
 tensorflow>=2.15.0
 keras>=3.0.0
 
-# ── Optional: Database ──────────────────────────────
-# mysql-connector-python>=8.3.0
+# ── Database ─────────────────────────────────────────
 SQLAlchemy>=2.0.0
 
-# ── Optional: Environment variables ─────────────────
+# ── Environment variables ────────────────────────────
 python-dotenv>=1.0.0

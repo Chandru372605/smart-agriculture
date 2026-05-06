@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 import numpy as np
 from backend.utils.helpers import load_model, err, safe_float
 from backend.config import Config
+from backend.models.db_models import log_prediction
 
 pest_bp = Blueprint('pest', __name__)
 
@@ -14,13 +15,15 @@ DENSITY_MAP = {'Low': 0, 'Medium': 1, 'High': 2}
 WATER_MAP   = {'No': 0, 'Yes — within 500m': 1, 'Yes — within 100m': 2}
 
 PEST_CATALOG = {
-    'Rice':     ['Brown Planthopper', 'Stem Borer', 'Leaf Folder', 'Blast'],
-    'Wheat':    ['Aphid', 'Rust (Yellow/Brown)', 'Termite', 'Powdery Mildew'],
-    'Maize':    ['Fall Armyworm', 'Stem Borer', 'Aphid', 'Northern Leaf Blight'],
-    'Cotton':   ['Pink Bollworm', 'Whitefly', 'Thrips', 'Mealybug'],
-    'Tomato':   ['Tomato Leaf Miner', 'Whitefly', 'Helicoverpa', 'Late Blight'],
-    'Potato':   ['Potato Tuber Moth', 'Aphid', 'Colorado Beetle', 'Late Blight'],
-    'Sugarcane':['Pyrilla', 'Early Shoot Borer', 'Woolly Aphid', 'Red Rot'],
+    'Rice':      ['Brown Planthopper', 'Stem Borer', 'Leaf Folder', 'Blast'],
+    'Wheat':     ['Aphid', 'Rust (Yellow/Brown)', 'Termite', 'Powdery Mildew'],
+    'Maize':     ['Fall Armyworm', 'Stem Borer', 'Aphid', 'Northern Leaf Blight'],
+    'Cotton':    ['Pink Bollworm', 'Whitefly', 'Thrips', 'Mealybug'],
+    'Tomato':    ['Tomato Leaf Miner', 'Whitefly', 'Helicoverpa', 'Late Blight'],
+    'Potato':    ['Potato Tuber Moth', 'Aphid', 'Colorado Beetle', 'Late Blight'],
+    'Sugarcane': ['Pyrilla', 'Early Shoot Borer', 'Woolly Aphid', 'Red Rot'],
+    'Soybean':   ['Soybean Aphid', 'Bean Leaf Beetle', 'Stink Bug', 'Sudden Death Syndrome'],
+    'Groundnut': ['Leaf Miner', 'Thrips', 'Spodoptera', 'Early Leaf Spot'],
 }
 
 ACTIONS_BY_LEVEL = {
@@ -43,7 +46,7 @@ ACTIONS_BY_LEVEL = {
         'Consult agronomist or KVK for crop-specific emergency protocol',
         'Notify neighbouring farmers for area-wide coordinated management',
         'Document severity and report to district agriculture office',
-        'Consider crop-loss insurance claim if >25% damage',
+        'Consider crop-loss insurance claim if > 25% damage',
     ],
 }
 
@@ -70,12 +73,11 @@ def assess():
         density = DENSITY_MAP.get(str(density_r), 1)
         water   = WATER_MAP.get(str(water_r), 0)
 
-        # Encode crop / season
         def enc_s(le, val):
             classes = list(le.classes_)
             return classes.index(val) if val in classes else 0
 
-        season_simple = season.split(' (')[0]  # strip season descriptor
+        season_simple = season.split(' (')[0]
         c_enc = enc_s(encoders['crop'],   crop)
         s_enc = enc_s(encoders['season'], season_simple)
 
@@ -83,13 +85,13 @@ def assess():
         risk = float(model.predict(X)[0])
         risk = max(0.0, min(100.0, risk))
 
-        level = 'High' if risk > 65 else ('Medium' if risk > 35 else 'Low')
-
+        level   = 'High' if risk > 65 else ('Medium' if risk > 35 else 'Low')
         threats = PEST_CATALOG.get(crop, ['General pest pressure detected'])
-        # Surface only top threats proportional to risk
         n_show  = 1 if level == 'Low' else (3 if level == 'Medium' else len(threats))
         threats = threats[:n_show]
 
+        log_prediction('pest', f'{crop} | Temp={temp}°C Hum={hum}%',
+                       f'{level} Risk ({round(risk, 1)})', inputs=data, confidence=round(risk, 1))
         return jsonify({
             'score':   round(risk, 1),
             'level':   level,

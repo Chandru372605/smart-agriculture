@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 import numpy as np
 from backend.utils.helpers import load_model, err, safe_float, fmt_inr
 from backend.config import Config
+from backend.models.db_models import log_prediction
 
 yield_bp = Blueprint('yield', __name__)
 
@@ -33,7 +34,7 @@ YIELD_TIPS = {
     'Cotton':   ['Plant on raised beds in vertisols to prevent waterlogging',
                  'Monitor pink bollworm pheromone traps from 45 DAS',
                  'Apply plant growth regulator at 75 DAS to reduce vegetative growth'],
-    'Sugarcane':['Ratoon crop saves replanting cost — maintain for 2-3 ratoons',
+    'Sugarcane':['Ratoon crop saves replanting cost — maintain for 2–3 ratoons',
                  'Trash mulching conserves moisture and suppresses weeds',
                  'Harvest at optimal sucrose content — test before cutting'],
     'Soybean':  ['Inoculate seeds with Bradyrhizobium japonicum for free nitrogen',
@@ -64,18 +65,17 @@ def predict():
         irr    = safe_float(data, 'irrigation', 1)
         pest   = safe_float(data, 'pesticide',  1)
 
-        # Encode categoricals (handle unseen labels gracefully)
         def enc_safe(le, val):
             classes = list(le.classes_)
             return classes.index(val) if val in classes else 0
 
-        c_enc = enc_safe(encoders['crop'],   crop)
-        s_enc = enc_safe(encoders['season'], season)
-        st_enc = enc_safe(encoders['state'], state)
-        irr_v = IRR_MAP.get(str(irr), int(irr)) if isinstance(irr, str) else int(irr)
-        pest_v = PEST_MAP.get(str(pest), 1) if isinstance(pest, str) else int(pest)
+        c_enc  = enc_safe(encoders['crop'],   crop)
+        s_enc  = enc_safe(encoders['season'], season)
+        st_enc = enc_safe(encoders['state'],  state)
+        irr_v  = IRR_MAP.get(str(irr),  int(irr))  if isinstance(irr,  str) else int(irr)
+        pest_v = PEST_MAP.get(str(pest), 1)         if isinstance(pest, str) else int(pest)
 
-        X = np.array([[c_enc, s_enc, st_enc, area, rain, fert, pest_v, irr_v]])
+        X      = np.array([[c_enc, s_enc, st_enc, area, rain, fert, pest_v, irr_v]])
         y_pred = float(model.predict(X)[0])
         y_pred = max(0.1, round(y_pred, 2))
 
@@ -86,20 +86,23 @@ def predict():
         revenue      = round(total_prod * price)
         conf         = min(98, max(55, 80 + (pct_diff * 0.2)))
 
-        summary = f'Expected {total_prod:.1f}t total — {pct_diff:+.1f}% vs regional average of {regional_avg}t/ha'
+        summary = (f'Expected {total_prod:.1f}t total — {pct_diff:+.1f}% '
+                   f'vs regional average of {regional_avg}t/ha')
 
         comparison = [
-            {'lbl': 'Your Yield',   'val': str(y_pred),        'color': 'var(--green-soft)'},
-            {'lbl': 'Region Avg',   'val': str(regional_avg),   'color': 'var(--amber)'},
-            {'lbl': 'National Best','val': str(round(regional_avg * 1.35, 1)), 'color': 'var(--green-mid)'},
+            {'lbl': 'Your Yield',    'val': str(y_pred),                        'color': 'var(--green-soft)'},
+            {'lbl': 'Region Avg',    'val': str(regional_avg),                  'color': 'var(--amber)'},
+            {'lbl': 'National Best', 'val': str(round(regional_avg * 1.35, 1)), 'color': 'var(--green-mid)'},
         ]
         metrics = [
-            {'val': f'{y_pred} t/ha', 'lbl': 'Predicted Yield'},
-            {'val': f'{total_prod} t','lbl': 'Total Production'},
-            {'val': fmt_inr(revenue), 'lbl': 'Est. Revenue'},
-            {'val': f'{pct_diff:+.1f}%','lbl': 'vs Regional Avg'},
+            {'val': f'{y_pred} t/ha',      'lbl': 'Predicted Yield'},
+            {'val': f'{total_prod} t',      'lbl': 'Total Production'},
+            {'val': fmt_inr(revenue),       'lbl': 'Est. Revenue'},
+            {'val': f'{pct_diff:+.1f}%',   'lbl': 'vs Regional Avg'},
         ]
 
+        log_prediction('yield', f"{crop} | {area}ha | {data.get('irrigation', 'N/A')}",
+                       f'{y_pred} t/ha', inputs=data, confidence=round(conf, 1))
         return jsonify({
             'yield_per_ha': y_pred,
             'summary':      summary,

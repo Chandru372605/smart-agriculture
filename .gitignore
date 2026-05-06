@@ -21,14 +21,23 @@ ml_models/saved/pest_model.pkl
 ml_models/saved/rotation_model.pkl
 ml_models/saved/disease_demo_rf.pkl
 ml_models/saved/market_lstm.keras
+ml_models/saved/disease_cnn.keras
 
 # ── Datasets (auto-generated or download from Kaggle) ──
 datasets/*.csv
 datasets/disease_images/
+datasets/tfds_cache/
+
+# ── SQLite databases ─────────────────────────────
+*.db
 
 # ── Flask / Python secrets ───────────────────────
 .env
 *.secret
+
+# ── Debug / scratch scripts ───────────────────────
+debug_*.py
+test_*.py
 
 # ── OS / editor artefacts ────────────────────────
 .DS_Store

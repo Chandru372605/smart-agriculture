@@ -1,6 +1,7 @@
 """
 AgroSense — Flask Application Entry Point
-Serves 9 page routes + 8 /api/* blueprint routes for live ML predictions.
+Serves 9 page routes + 8 /api/* blueprint routes for live ML predictions
++ prediction history API + SQLite persistence.
 """
 import sys, os
 
@@ -21,8 +22,13 @@ app = Flask(
     static_folder='../frontend/static',
 )
 app.config.from_object(Config)
-CORS(app)   # allow cross-origin requests (useful when testing with separate front-end)
+CORS(app)
 
+# ─────────────────────────────────────────
+#  Database initialisation
+# ─────────────────────────────────────────
+from backend.models.db_models import init_db
+init_db()
 
 # ─────────────────────────────────────────
 #  Import & register API blueprints
@@ -35,6 +41,7 @@ from backend.routes.rotation_routes   import rotation_bp
 from backend.routes.pest_routes       import pest_bp
 from backend.routes.profit_routes     import profit_bp
 from backend.routes.market_routes     import market_bp
+from backend.routes.history_routes    import history_bp
 
 API_PREFIX = '/api'
 app.register_blueprint(crop_bp,       url_prefix=API_PREFIX)
@@ -45,6 +52,7 @@ app.register_blueprint(rotation_bp,   url_prefix=API_PREFIX)
 app.register_blueprint(pest_bp,       url_prefix=API_PREFIX)
 app.register_blueprint(profit_bp,     url_prefix=API_PREFIX)
 app.register_blueprint(market_bp,     url_prefix=API_PREFIX)
+app.register_blueprint(history_bp,    url_prefix=API_PREFIX)
 
 
 # ─────────────────────────────────────────
@@ -87,6 +95,10 @@ def profit_estimator():
 @app.route('/market-price')
 def market_price():
     return render_template('market_price.html')
+
+@app.route('/history')
+def history():
+    return render_template('history.html')
 
 
 # ─────────────────────────────────────────
