@@ -1,27 +1,33 @@
 # AgroSense — Python Requirements
 # Install: pip install -r requirements.txt
 
-# ── Core Flask ──────────────────────────────────────
+# ── Core Flask ──────────────────────────────────────────────────────────────
 flask>=3.0.0
 flask-cors>=4.0.0
 
-# ── ML / Data ───────────────────────────────────────
+# ── ML / Data ───────────────────────────────────────────────────────────────
 scikit-learn>=1.4.0
-xgboost>=2.0.0
 pandas>=2.2.0
 numpy>=1.26.0
 joblib>=1.4.0
 
-# ── Image processing ────────────────────────────────
+# ── Image processing ────────────────────────────────────────────────────────
 Pillow>=10.0.0
 
-# ── Deep Learning (disease CNN + market LSTM) ────────
-tensorflow>=2.15.0
-keras>=3.0.0
+# ── Deep Learning (optional — loaded lazily, no crash if missing) ───────────
+# tensorflow>=2.15.0     # Uncomment locally if you have the disease CNN model
+# keras>=3.0.0           # (too heavy for Render free tier — 500MB install)
 
-# ── Database ─────────────────────────────────────────
+# ── HTTP requests (weather + mandi APIs) ────────────────────────────────────
+requests>=2.31.0
+urllib3>=2.0.0
+
+# ── Database ────────────────────────────────────────────────────────────────
 SQLAlchemy>=2.0.0
 
-# ── Environment variables ────────────────────────────
-waitress>=3.0.0
+# ── Environment variables ───────────────────────────────────────────────────
 python-dotenv>=1.0.0
+
+# ── WSGI servers ────────────────────────────────────────────────────────────
+gunicorn>=21.0.0        # Linux / Render / Railway production server
+waitress>=3.0.0         # Windows local production server (python run.py --prod)
