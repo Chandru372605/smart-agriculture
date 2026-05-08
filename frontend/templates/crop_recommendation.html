@@ -1,13 +1,67 @@
 {% extends "base.html" %}
 
 {% block title %}Crop Recommendation — AgroSense{% endblock %}
-{% block meta_description %}Enter soil nutrients and climate data to get the optimal crop recommendation powered by a Random Forest classifier.{% endblock %}
+{% block meta_description %}Enter soil nutrients and get the optimal crop recommendation — climate fields auto-filled from live weather data.{% endblock %}
+
+{% block head_extra %}
+<style>
+/* ── Weather auto-fill banner ── */
+.weather-autofill {
+  background: linear-gradient(135deg, #1a4731 0%, #2d7a52 100%);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.weather-autofill::before {
+  content:''; position:absolute; top:-30px; right:-30px;
+  width:120px; height:120px; background:rgba(255,255,255,.06); border-radius:50%;
+}
+.waf-title { font-size:13px; font-weight:600; opacity:.85; letter-spacing:.5px; margin-bottom:10px; }
+.waf-row   { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.waf-input {
+  flex:1; min-width:140px;
+  background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25);
+  border-radius:8px; padding:8px 12px; color:#fff; font-size:13px; outline:none;
+}
+.waf-input::placeholder { color:rgba(255,255,255,.55); }
+.waf-input:focus { border-color:rgba(255,255,255,.6); background:rgba(255,255,255,.22); }
+.waf-btn {
+  background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.3);
+  border-radius:8px; padding:8px 14px; color:#fff; font-size:12px;
+  font-weight:600; cursor:pointer; white-space:nowrap; transition:background .2s;
+}
+.waf-btn:hover  { background:rgba(255,255,255,.32); }
+.waf-btn.locate { padding:8px 12px; }
+
+/* Weather result chip */
+.waf-chip {
+  display:none; margin-top:12px;
+  background:rgba(255,255,255,.12); border-radius:10px;
+  padding:10px 14px; font-size:12px; line-height:1.8;
+  backdrop-filter:blur(4px); position:relative; z-index:1;
+}
+.waf-chip.show { display:block; }
+.waf-chip-row  { display:flex; flex-wrap:wrap; gap:14px; }
+.waf-chip-item { text-align:center; }
+.waf-chip-item .val { font-size:18px; font-weight:700; }
+.waf-chip-item .lbl { font-size:10px; opacity:.7; text-transform:uppercase; letter-spacing:.4px; }
+.waf-status { font-size:11px; opacity:.7; margin-top:8px; }
+.waf-spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Slider label with LIVE badge */
+.live-badge { display:inline-block; background:#2d7a52; color:#fff; font-size:9px; font-weight:700; padding:1px 5px; border-radius:4px; margin-left:6px; letter-spacing:.5px; vertical-align:middle; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
   <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
   <h2>🌾 Crop Recommendation</h2>
-  <p>Enter your soil parameters and climate conditions</p>
+  <p>Soil parameters auto-completed with live weather data from your location</p>
 </div>
 
 <div class="content-wrap">
@@ -49,24 +103,50 @@
         </div>
 
         <hr class="divider"/>
+
+        <!-- ── LIVE WEATHER AUTO-FILL ── -->
         <h4>🌡️ Climate Conditions</h4>
+        <div class="weather-autofill" id="crop-weather-banner">
+          <div class="waf-title">📍 AUTO-FILL FROM LIVE WEATHER</div>
+          <div class="waf-row">
+            <input type="text" class="waf-input" id="crop-city-input" placeholder="Enter city (e.g. Pune, Delhi…)" />
+            <button class="waf-btn" onclick="cropSearchWeather()" id="crop-search-btn">🔍 Search</button>
+            <button class="waf-btn locate" onclick="cropGeoWeather()" title="Use my GPS location" id="crop-geo-btn">📍</button>
+          </div>
+          <!-- Live weather chip -->
+          <div class="waf-chip" id="crop-waf-chip">
+            <div class="waf-chip-row" id="crop-waf-vals"></div>
+            <div class="waf-status" id="crop-waf-status"></div>
+          </div>
+        </div>
+
+        <!-- Climate sliders (auto-filled by weather) -->
         <div class="row g-3">
           <div class="col-6">
-            <label class="form-label" for="crop-temp-range">Temperature — °C</label>
+            <label class="form-label" for="crop-temp-range">
+              Temperature — °C
+              <span class="live-badge" id="temp-live-badge" style="display:none;">LIVE</span>
+            </label>
             <div class="range-row">
               <input id="crop-temp-range" type="range" min="8" max="45" value="26" oninput="rv(this,'crop-temp')"/>
               <span class="range-val" id="crop-temp">26</span>
             </div>
           </div>
           <div class="col-6">
-            <label class="form-label" for="crop-hum-range">Humidity — %</label>
+            <label class="form-label" for="crop-hum-range">
+              Humidity — %
+              <span class="live-badge" id="hum-live-badge" style="display:none;">LIVE</span>
+            </label>
             <div class="range-row">
               <input id="crop-hum-range" type="range" min="10" max="100" value="70" oninput="rv(this,'crop-hum')"/>
               <span class="range-val" id="crop-hum">70</span>
             </div>
           </div>
           <div class="col-12">
-            <label class="form-label" for="crop-rain-range">Rainfall — mm</label>
+            <label class="form-label" for="crop-rain-range">
+              Rainfall — mm
+              <span class="live-badge" id="rain-live-badge" style="display:none;">LIVE</span>
+            </label>
             <div class="range-row">
               <input id="crop-rain-range" type="range" min="20" max="300" value="120" oninput="rv(this,'crop-rain')"/>
               <span class="range-val" id="crop-rain">120</span>
@@ -106,9 +186,143 @@
         <p style="font-size:13px;color:var(--text-muted);line-height:1.7;">
           A <strong>Random Forest classifier</strong> trained on 2,200 soil &amp; climate samples predicts the best
           crop for your conditions. The model achieved <strong>99.1% accuracy</strong> on test data across 22 crop types.
+          Temperature and humidity are auto-filled from <strong>live OpenWeatherMap data</strong>.
         </p>
       </div>
     </div>
   </div>
 </div>
 {% endblock %}
+
+{% block scripts_extra %}
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function setSlider(rangeId, displayId, value, multiplier, isDecimal) {
+  const range = document.getElementById(rangeId);
+  const disp  = document.getElementById(displayId);
+  if (!range || !disp) return;
+  if (multiplier) {
+    // ph slider: raw value = val * 10
+    range.value = Math.round(value * 10);
+    disp.textContent = parseFloat(value).toFixed(1);
+  } else {
+    const clamped = Math.max(parseFloat(range.min), Math.min(parseFloat(range.max), Math.round(value)));
+    range.value = clamped;
+    disp.textContent = clamped;
+  }
+}
+
+function showLiveBadge(ids) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'inline-block';
+  });
+}
+
+function showWafSpinner(msg) {
+  document.getElementById('crop-waf-chip').classList.remove('show');
+  const btn = document.getElementById('crop-search-btn');
+  const geo = document.getElementById('crop-geo-btn');
+  btn.innerHTML = `<span class="waf-spinner"></span>`;
+  btn.disabled = geo.disabled = true;
+}
+
+function resetWafBtns() {
+  document.getElementById('crop-search-btn').innerHTML = '🔍 Search';
+  document.getElementById('crop-search-btn').disabled = false;
+  document.getElementById('crop-geo-btn').disabled = false;
+}
+
+// ── Fill sliders from weather data ──────────────────────────────────────────
+function applyWeatherToForm(curr, forecast) {
+  // Temperature → use current temp
+  setSlider('crop-temp-range', 'crop-temp', curr.temp);
+
+  // Humidity → current humidity
+  setSlider('crop-hum-range', 'crop-hum', curr.humidity);
+
+  // Rainfall → sum of 5-day forecast rain (representative monthly estimate)
+  let rain = 0;
+  if (forecast && forecast.length) {
+    rain = forecast.reduce((s, d) => s + (d.rain_mm || 0), 0);
+    // Scale 5-day total to monthly equivalent (*6), clamped to slider range
+    rain = Math.round(Math.min(300, Math.max(20, rain * 6)));
+  } else {
+    rain = Math.round(Math.min(300, Math.max(20, (curr.rain_1h || 0) * 720)));
+  }
+  setSlider('crop-rain-range', 'crop-rain', rain);
+
+  // Show LIVE badges
+  showLiveBadge(['temp-live-badge', 'hum-live-badge', 'rain-live-badge']);
+
+  // Render weather chip
+  const chip = document.getElementById('crop-waf-chip');
+  document.getElementById('crop-waf-vals').innerHTML = `
+    <div class="waf-chip-item"><div class="val">${curr.icon} ${curr.temp}°C</div><div class="lbl">Temperature</div></div>
+    <div class="waf-chip-item"><div class="val">${curr.humidity}%</div><div class="lbl">Humidity</div></div>
+    <div class="waf-chip-item"><div class="val">${rain}mm</div><div class="lbl">Rain (est.)</div></div>
+    <div class="waf-chip-item"><div class="val">${curr.wind_speed} km/h</div><div class="lbl">Wind</div></div>
+  `;
+  document.getElementById('crop-waf-status').innerHTML =
+    `✅ Live data from <strong>${curr.city}${curr.country ? ', ' + curr.country : ''}</strong> — ${curr.description} · Updated ${curr.updated_at}`;
+  chip.classList.add('show');
+
+  resetWafBtns();
+}
+
+// ── Fetch weather by coords or city ─────────────────────────────────────────
+async function fetchCropWeather(params) {
+  showWafSpinner();
+  try {
+    const qs = new URLSearchParams(params).toString();
+    const [curr, fc] = await Promise.all([
+      fetch('/api/weather/current?'  + qs).then(r => r.json()),
+      fetch('/api/weather/forecast?' + qs + '&days=5').then(r => r.json()),
+    ]);
+    if (curr.error) {
+      document.getElementById('crop-waf-status').textContent =
+        curr.error.includes('not configured')
+          ? '⚠️ Weather API key not set in .env'
+          : '⚠️ ' + curr.error;
+      document.getElementById('crop-waf-chip').classList.add('show');
+      resetWafBtns();
+      return;
+    }
+    applyWeatherToForm(curr, fc.forecast || []);
+  } catch (e) {
+    resetWafBtns();
+  }
+}
+
+function cropSearchWeather() {
+  const city = document.getElementById('crop-city-input').value.trim();
+  if (!city) return;
+  fetchCropWeather({ city });
+}
+
+function cropGeoWeather() {
+  if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+  showWafSpinner();
+  navigator.geolocation.getCurrentPosition(
+    pos => fetchCropWeather({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+    ()  => { resetWafBtns(); }
+  );
+}
+
+// Allow Enter key in city box
+document.getElementById('crop-city-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') cropSearchWeather();
+});
+
+// ── Auto-fetch on page load via geolocation ──────────────────────────────────
+window.addEventListener('load', () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => fetchCropWeather({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => {}   // silent fail — user can click Search manually
+    );
+  }
+});
+</script>
+{% endblock %}
+

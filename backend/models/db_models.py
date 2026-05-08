@@ -4,14 +4,16 @@ SQLite by default; swap DATABASE_URL env var for PostgreSQL in production.
 """
 import os, json, datetime
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text, DateTime
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATABASE_URL = os.getenv('DATABASE_URL', f'sqlite:///{os.path.join(BASE_DIR, "agrosense.db")}')
 
 engine       = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if 'sqlite' in DATABASE_URL else {})
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-Base         = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 class PredictionLog(Base):
@@ -25,7 +27,7 @@ class PredictionLog(Base):
     confidence = Column(Float, nullable=True)                      # 0–100
     inputs_json  = Column(Text, nullable=True)                     # JSON dump of request inputs
     output_json  = Column(Text, nullable=True)                     # JSON dump of full response
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), index=True)
 
     def to_dict(self):
         return {
@@ -63,9 +65,11 @@ def log_prediction(module: str, summary: str, result: str,
         db.add(record)
         db.commit()
     except Exception:
-        pass
+        if db:
+            db.rollback()
     finally:
         try:
-            db.close()
+            if db:
+                db.close()
         except Exception:
             pass

@@ -1,21 +1,219 @@
 {% extends "base.html" %}
 
 {% block title %}AgroSense — Smart Agriculture AI{% endblock %}
-{% block meta_description %}8 integrated AI/ML modules to help farmers make data-driven decisions — from soil analysis to market price prediction.{% endblock %}
+{% block meta_description %}9 integrated AI/ML modules to help farmers make data-driven decisions — from soil analysis to market price prediction.{% endblock %}
+
+{% block head_extra %}
+<style>
+/* ── Weather Widget ── */
+.weather-widget {
+  background: linear-gradient(135deg, #1a4731 0%, #2d7a52 50%, #1e5c3a 100%);
+  border-radius: 20px;
+  padding: 28px 32px;
+  color: #fff;
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(45,122,82,.35);
+}
+.weather-widget::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 180px; height: 180px;
+  background: rgba(255,255,255,.06);
+  border-radius: 50%;
+}
+.weather-widget::after {
+  content: '';
+  position: absolute;
+  bottom: -60px; left: 60px;
+  width: 220px; height: 220px;
+  background: rgba(255,255,255,.04);
+  border-radius: 50%;
+}
+.weather-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+.weather-location {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  opacity: .8;
+  margin-bottom: 6px;
+  letter-spacing: .5px;
+}
+.weather-main-temp {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+.weather-desc { font-size: 15px; opacity: .85; margin-top: 4px; text-transform: capitalize; }
+.weather-icon-big { font-size: 64px; line-height: 1; }
+.weather-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.15);
+  position: relative;
+  z-index: 1;
+}
+.weather-stat-item { text-align: center; }
+.weather-stat-item .ws-val { font-size: 18px; font-weight: 600; }
+.weather-stat-item .ws-lbl { font-size: 11px; opacity: .7; margin-top: 2px; text-transform: uppercase; letter-spacing: .5px; }
+.weather-search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+.weather-search-row input {
+  flex: 1;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 10px;
+  padding: 9px 14px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  backdrop-filter: blur(4px);
+}
+.weather-search-row input::placeholder { color: rgba(255,255,255,.6); }
+.weather-search-row input:focus { border-color: rgba(255,255,255,.6); background: rgba(255,255,255,.2); }
+.weather-btn {
+  background: rgba(255,255,255,.2);
+  border: 1px solid rgba(255,255,255,.3);
+  border-radius: 10px;
+  padding: 9px 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .2s;
+}
+.weather-btn:hover { background: rgba(255,255,255,.3); }
+.weather-loading {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; opacity: .8;
+}
+.weather-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.weather-error { font-size: 13px; opacity: .8; padding: 8px 0; }
+.weather-no-key {
+  font-size: 13px;
+  background: rgba(255,255,255,.12);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  line-height: 1.6;
+}
+.weather-no-key a { color: #a8f0c6; }
+.forecast-strip {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,.15);
+  position: relative; z-index: 1;
+}
+.forecast-day {
+  background: rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: 10px 14px;
+  text-align: center;
+  min-width: 72px;
+  flex: 1;
+  backdrop-filter: blur(4px);
+}
+.forecast-day .fd-name { font-size: 11px; opacity: .7; text-transform: uppercase; letter-spacing: .5px; }
+.forecast-day .fd-icon { font-size: 22px; margin: 4px 0; }
+.forecast-day .fd-range { font-size: 12px; font-weight: 600; }
+.forecast-day .fd-rain  { font-size: 10px; opacity: .7; margin-top: 2px; }
+.weather-updated { font-size: 11px; opacity: .5; margin-top: 12px; position: relative; z-index: 1; }
+</style>
+{% endblock %}
 
 {% block content %}
+<!-- ══════════════════════════════════════
+     WEATHER WIDGET
+══════════════════════════════════════ -->
+<div class="weather-widget" id="weatherWidget">
+  <!-- Search row -->
+  <div class="weather-search-row">
+    <input type="text" id="weather-city-input" placeholder="Enter city name (e.g. Mumbai, Delhi…)" />
+    <button class="weather-btn" onclick="searchWeather()" id="weather-search-btn">🔍 Search</button>
+    <button class="weather-btn" onclick="geolocateWeather()" id="weather-geo-btn" title="Use my location">📍 Locate</button>
+  </div>
+
+  <!-- Content area -->
+  <div id="weather-content">
+    <div class="weather-loading" id="weather-loading" style="display:flex;">
+      <div class="weather-spinner"></div> <span id="weather-loading-msg">Getting your location…</span>
+    </div>
+    <div id="weather-main" style="display:none;">
+      <div class="weather-top">
+        <div>
+          <div class="weather-location">📍 <span id="w-city">—</span></div>
+          <div class="weather-main-temp"><span id="w-temp">—</span>°C</div>
+          <div class="weather-desc" id="w-desc">—</div>
+        </div>
+        <div class="weather-icon-big" id="w-icon">🌡️</div>
+      </div>
+      <div class="weather-stats">
+        <div class="weather-stat-item"><div class="ws-val" id="w-humidity">—</div><div class="ws-lbl">Humidity %</div></div>
+        <div class="weather-stat-item"><div class="ws-val" id="w-wind">—</div><div class="ws-lbl">Wind km/h</div></div>
+        <div class="weather-stat-item"><div class="ws-val" id="w-rain">—</div><div class="ws-lbl">Rain mm</div></div>
+        <div class="weather-stat-item"><div class="ws-val" id="w-feels">—</div><div class="ws-lbl">Feels like °C</div></div>
+        <div class="weather-stat-item"><div class="ws-val" id="w-pressure">—</div><div class="ws-lbl">Pressure hPa</div></div>
+        <div class="weather-stat-item"><div class="ws-val" id="w-vis">—</div><div class="ws-lbl">Visibility km</div></div>
+      </div>
+      <div class="forecast-strip" id="forecast-strip"></div>
+      <div class="weather-updated">Last updated: <span id="w-updated">—</span></div>
+    </div>
+    <div id="weather-no-key" style="display:none;">
+      <div style="font-size:28px;margin-bottom:8px;">🌤️ Live Weather</div>
+      <div class="weather-no-key">
+        Add your free OpenWeatherMap API key to enable live weather data.<br/>
+        1. Sign up at <a href="https://openweathermap.org/api" target="_blank">openweathermap.org/api</a><br/>
+        2. Add <code>WEATHER_API_KEY=your_key</code> to your <strong>.env</strong> file<br/>
+        3. Restart the Flask server
+      </div>
+    </div>
+    <div id="weather-error" class="weather-error" style="display:none;"></div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════
      HERO
 ══════════════════════════════════════ -->
 <div class="hero">
   <div class="hero-eyebrow">🌿 AI-Powered Smart Agriculture</div>
   <h1>Farm Smarter,<br/><em>Grow Better</em></h1>
-  <p class="hero-sub">8 integrated AI/ML modules to help farmers make data-driven decisions — from soil to market.</p>
+  <p class="hero-sub">9 integrated AI/ML modules to help farmers make data-driven decisions — from soil to market.</p>
   <div class="hero-stats">
-    <div class="hero-stat"><span class="hero-stat-num">8</span><span class="hero-stat-label">AI Modules</span></div>
+    <div class="hero-stat"><span class="hero-stat-num">9</span><span class="hero-stat-label">AI Modules</span></div>
     <div class="hero-stat"><span class="hero-stat-num">22</span><span class="hero-stat-label">Crops Covered</span></div>
-    <div class="hero-stat"><span class="hero-stat-num">38</span><span class="hero-stat-label">Diseases Detected</span></div>
-    <div class="hero-stat"><span class="hero-stat-num">95%</span><span class="hero-stat-label">Avg. Accuracy</span></div>
+    <div class="hero-stat"><span class="hero-stat-num">39</span><span class="hero-stat-label">Diseases Detected</span></div>
+    <div class="hero-stat"><span class="hero-stat-num">Live</span><span class="hero-stat-label">Weather Data</span></div>
   </div>
 </div>
 
@@ -33,13 +231,13 @@
     <div class="mod-icon earth">🔬</div>
     <h3>Disease Detection</h3>
     <p>Upload a leaf photo to instantly diagnose plant diseases and get treatment advice.</p>
-    <span class="mod-tag">CNN · ResNet-50</span>
+    <span class="mod-tag">HOG · RF · 39 Classes</span>
   </a>
   <a class="module-card" href="{{ url_for('irrigation') }}">
     <div class="mod-icon blue">💧</div>
     <h3>Smart Irrigation</h3>
-    <p>Precision irrigation scheduling based on soil moisture, crop type and weather.</p>
-    <span class="mod-tag">Decision Tree</span>
+    <p>Precision irrigation scheduling based on soil moisture, crop type and live weather.</p>
+    <span class="mod-tag">Decision Tree · Live Weather</span>
   </a>
   <a class="module-card" href="{{ url_for('yield_prediction') }}">
     <div class="mod-icon green">📊</div>
@@ -56,8 +254,8 @@
   <a class="module-card" href="{{ url_for('pest_risk') }}">
     <div class="mod-icon earth">🐛</div>
     <h3>Pest Risk Prediction</h3>
-    <p>Assess risk of pest infestation based on season, region, and crop conditions.</p>
-    <span class="mod-tag">Logistic Regression</span>
+    <p>Assess risk of pest infestation based on season, region, and live weather data.</p>
+    <span class="mod-tag">Logistic Regression · Live Weather</span>
   </a>
   <a class="module-card" href="{{ url_for('profit_estimator') }}">
     <div class="mod-icon amber">💰</div>
@@ -72,4 +270,144 @@
     <span class="mod-tag">LSTM · Time Series</span>
   </a>
 </div>
+
+
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+// ── Weather widget logic ─────────────────────────────────────────────────────
+let _weatherLastParams = null;   // store for re-use by irrigation / pest pages
+
+function showLoading(yes) {
+  document.getElementById('weather-loading').style.display = yes ? 'flex' : 'none';
+  document.getElementById('weather-main').style.display    = 'none';
+  document.getElementById('weather-error').style.display   = 'none';
+  document.getElementById('weather-no-key').style.display  = 'none';
+}
+
+function renderWeather(curr, forecast) {
+  document.getElementById('w-city').textContent     = curr.city + (curr.country ? ', ' + curr.country : '');
+  document.getElementById('w-temp').textContent     = curr.temp;
+  document.getElementById('w-desc').textContent     = curr.description;
+  document.getElementById('w-icon').textContent     = curr.icon;
+  document.getElementById('w-humidity').textContent = curr.humidity + '%';
+  document.getElementById('w-wind').textContent     = curr.wind_speed;
+  document.getElementById('w-rain').textContent     = curr.rain_1h + 'mm';
+  document.getElementById('w-feels').textContent    = curr.feels_like + '°C';
+  document.getElementById('w-pressure').textContent = curr.pressure;
+  document.getElementById('w-vis').textContent      = curr.visibility;
+  document.getElementById('w-updated').textContent  = curr.updated_at;
+
+  // Forecast strip
+  const strip = document.getElementById('forecast-strip');
+  strip.innerHTML = '';
+  if (forecast && forecast.length) {
+    forecast.forEach(f => {
+      strip.innerHTML += `
+        <div class="forecast-day">
+          <div class="fd-name">${f.day_name}</div>
+          <div class="fd-icon">${f.icon}</div>
+          <div class="fd-range">${f.temp_min}°–${f.temp_max}°</div>
+          <div class="fd-rain">💧 ${f.rain_mm}mm</div>
+        </div>`;
+    });
+  }
+
+  document.getElementById('weather-loading').style.display = 'none';
+  document.getElementById('weather-main').style.display    = 'block';
+}
+
+async function fetchWeatherBy(params) {
+  showLoading(true);
+  _weatherLastParams = params;
+  try {
+    const qs  = new URLSearchParams(params).toString();
+    const [cr, fc] = await Promise.all([
+      fetch('/api/weather/current?'  + qs).then(r => r.json()),
+      fetch('/api/weather/forecast?' + qs + '&days=5').then(r => r.json()),
+    ]);
+    if (cr.error) {
+      if (cr.error.includes('not configured')) {
+        document.getElementById('weather-no-key').style.display = 'block';
+      } else {
+        document.getElementById('weather-error').style.display = 'block';
+        document.getElementById('weather-error').textContent = '⚠️ ' + cr.error;
+      }
+      showLoading(false);
+      return;
+    }
+    renderWeather(cr, fc.forecast || []);
+  } catch (e) {
+    showLoading(false);
+    document.getElementById('weather-error').style.display = 'block';
+    document.getElementById('weather-error').textContent = '⚠️ Could not reach weather service.';
+  }
+}
+
+function searchWeather() {
+  const city = document.getElementById('weather-city-input').value.trim();
+  if (!city) return;
+  fetchWeatherBy({ city });
+}
+
+function geolocateWeather() {
+  if (!navigator.geolocation) {
+    alert('Geolocation not supported by your browser.');
+    return;
+  }
+  showLoading(true);
+  navigator.geolocation.getCurrentPosition(
+    pos => fetchWeatherBy({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+    ()  => {
+      showLoading(false);
+      document.getElementById('weather-error').style.display = 'block';
+      document.getElementById('weather-error').textContent = '⚠️ Location access denied.';
+    }
+  );
+}
+
+// Allow Enter key in city input
+document.getElementById('weather-city-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchWeather();
+});
+
+// Auto-load: immediately request geolocation on page load
+window.addEventListener('load', () => {
+  if (!navigator.geolocation) {
+    // Browser doesn't support geolocation — fall back to a default city probe
+    document.getElementById('weather-loading-msg').textContent = 'Detecting location…';
+    fetch('/api/weather/current?city=Delhi').then(r => r.json()).then(d => {
+      if (d.error && d.error.includes('not configured')) {
+        document.getElementById('weather-loading').style.display = 'none';
+        document.getElementById('weather-no-key').style.display  = 'block';
+      }
+    }).catch(() => {
+      document.getElementById('weather-loading').style.display = 'none';
+    });
+    return;
+  }
+
+  // Show spinner immediately — browser will prompt for permission
+  document.getElementById('weather-loading').style.display = 'flex';
+  document.getElementById('weather-loading-msg').textContent = 'Getting your location…';
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('weather-loading-msg').textContent = 'Fetching live weather…';
+      fetchWeatherBy({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+    },
+    err => {
+      // Permission denied or timeout — show manual search prompt
+      document.getElementById('weather-loading').style.display = 'none';
+      document.getElementById('weather-error').style.display  = 'block';
+      document.getElementById('weather-error').textContent =
+        err.code === 1
+          ? '📍 Location access denied. Search a city above to get weather.'
+          : '📍 Could not detect location. Search a city above.';
+    },
+    { timeout: 10000, enableHighAccuracy: false }
+  );
+});
+</script>
 {% endblock %}

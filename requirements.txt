@@ -14,7 +14,6 @@ joblib>=1.4.0
 
 # ── Image processing ────────────────────────────────
 Pillow>=10.0.0
-opencv-python>=4.8.0
 
 # ── Deep Learning (disease CNN + market LSTM) ────────
 tensorflow>=2.15.0
@@ -24,4 +23,5 @@ keras>=3.0.0
 SQLAlchemy>=2.0.0
 
 # ── Environment variables ────────────────────────────
+waitress>=3.0.0
 python-dotenv>=1.0.0

@@ -2,6 +2,10 @@
 AgroSense — Application Configuration
 """
 import os
+from dotenv import load_dotenv
+
+# Load .env file from project root (silently ignored if file doesn't exist)
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, '..', 'ml_models', 'saved')
@@ -11,13 +15,21 @@ class Config:
     DEBUG            = os.getenv('FLASK_DEBUG', 'true').lower() == 'true'
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024   # 5 MB max upload
 
+    # ── OpenWeatherMap API key ────────────────────────────────
+    WEATHER_API_KEY  = os.getenv('WEATHER_API_KEY', '')
+
+    # ── data.gov.in Mandi Prices API key ─────────────────────
+    # Get free key at https://data.gov.in/user/me/api-keys
+    DATAGOV_API_KEY  = os.getenv('DATAGOV_API_KEY', '')
+
     # ── Saved model paths ────────────────────────────────
     CROP_MODEL_PATH    = os.path.join(MODELS_DIR, 'crop_recommend.pkl')
     CROP_ENCODER_PATH  = os.path.join(MODELS_DIR, 'crop_label_encoder.pkl')
 
-    DISEASE_CNN_PATH   = os.path.join(MODELS_DIR, 'disease_cnn.keras')
-    DISEASE_RF_PATH    = os.path.join(MODELS_DIR, 'disease_demo_rf.pkl')
-    DISEASE_META_PATH  = os.path.join(MODELS_DIR, 'disease_classes.pkl')
+    DISEASE_CNN_PATH     = os.path.join(MODELS_DIR, 'disease_cnn.keras')
+    DISEASE_RF_PATH      = os.path.join(MODELS_DIR, 'disease_demo_rf.pkl')
+    DISEASE_META_PATH    = os.path.join(MODELS_DIR, 'disease_classes.pkl')
+    DISEASE_SKLEARN_PATH = os.path.join(MODELS_DIR, 'disease_sklearn.pkl')
 
     IRRIG_MODEL_PATH   = os.path.join(MODELS_DIR, 'irrigation_model.pkl')
 

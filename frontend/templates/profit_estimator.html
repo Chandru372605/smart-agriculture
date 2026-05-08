@@ -3,11 +3,87 @@
 {% block title %}Farm Profit Estimator — AgroSense{% endblock %}
 {% block meta_description %}Calculate expected revenue, input costs, and net farm profit before planting season using a linear regression model.{% endblock %}
 
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+<style>
+/* ── MSP badge ── */
+.msp-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 6px; margin-left: 8px; vertical-align: middle;
+}
+.msp-above { background: #dcfce7; color: #166534; }
+.msp-below { background: #fee2e2; color: #991b1b; }
+.msp-equal { background: #fef9c3; color: #854d0e; }
+
+/* ── Map Modal ── */
+.map-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  z-index: 9999; align-items: center; justify-content: center;
+}
+.map-modal-overlay.open { display: flex; }
+.map-modal {
+  background: #fff; border-radius: 18px; width: min(700px, 95vw);
+  max-height: 90vh; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.3);
+  display: flex; flex-direction: column;
+}
+.map-modal-header {
+  padding: 16px 20px; border-bottom: 1px solid #e8e8e0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.map-modal-header h5 { margin: 0; font-size: 15px; font-weight: 700; }
+.map-modal-body { flex: 1; min-height: 0; }
+#farm-map { height: 400px; }
+.map-modal-footer {
+  padding: 12px 20px; border-top: 1px solid #e8e8e0;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.map-area-display {
+  font-size: 14px; font-weight: 600; color: var(--green-deep);
+}
+.btn-map-confirm {
+  background: var(--green-deep); color: #fff; border: none; border-radius: 10px;
+  padding: 9px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn-map-confirm:hover { background: #1a5c38; }
+.btn-map-draw {
+  background: #f0faf5; color: var(--green-deep); border: 1px solid #b6dfc8;
+  border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+  margin-left: 8px; vertical-align: middle;
+}
+.btn-map-draw:hover { background: #dcfce7; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
   <h2>💰 Farm Profit Estimator</h2>
   <p>Calculate expected revenue, costs and net profit</p>
+</div>
+
+<!-- ── MAP MODAL ── -->
+<div class="map-modal-overlay" id="map-modal">
+  <div class="map-modal">
+    <div class="map-modal-header">
+      <h5>🗺️ Draw Your Farm Boundary</h5>
+      <button onclick="closeMapModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666;">✕</button>
+    </div>
+    <div class="map-modal-body">
+      <div id="farm-map"></div>
+    </div>
+    <div class="map-modal-footer">
+      <div>
+        <span style="font-size:12px;color:var(--text-muted);">
+          Use the ⬛ polygon tool on the left to draw your field boundary.
+        </span>
+        <div class="map-area-display" id="map-area-display">Calculated area: —</div>
+      </div>
+      <button class="btn-map-confirm" onclick="confirmMapArea()" id="map-confirm-btn" disabled>
+        ✅ Use This Area
+      </button>
+    </div>
+  </div>
 </div>
 
 <div class="content-wrap">
@@ -20,13 +96,16 @@
         <div class="row g-3">
           <div class="col-6">
             <label class="form-label" for="pr-crop">Crop</label>
-            <select class="form-select" id="pr-crop">
+            <select class="form-select" id="pr-crop" onchange="updateMspBadge()">
               <option>Rice</option><option>Wheat</option><option>Maize</option>
               <option>Cotton</option><option>Sugarcane</option><option>Soybean</option>
             </select>
           </div>
           <div class="col-6">
-            <label class="form-label" for="pr-area">Area (hectares)</label>
+            <label class="form-label" for="pr-area">
+              Area (hectares)
+              <button class="btn-map-draw" onclick="openMapModal()" title="Draw farm on map">🗺️ Map</button>
+            </label>
             <input type="number" class="form-control" id="pr-area" value="5" min="0.5"/>
           </div>
           <div class="col-6">
@@ -34,8 +113,12 @@
             <input type="number" class="form-control" id="pr-yield" value="4.2" step="0.1"/>
           </div>
           <div class="col-6">
-            <label class="form-label" for="pr-price">Selling Price (₹/tonne)</label>
-            <input type="number" class="form-control" id="pr-price" value="18000"/>
+            <label class="form-label" for="pr-price">
+              Selling Price (₹/tonne)
+              <span class="msp-badge" id="msp-badge" style="display:none;"></span>
+            </label>
+            <input type="number" class="form-control" id="pr-price" value="18000" oninput="updateMspBadge()"/>
+            <div id="msp-info" style="font-size:11px;color:var(--text-muted);margin-top:4px;"></div>
           </div>
         </div>
 
@@ -93,4 +176,119 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script>
+// ── MSP Table (Kharif 2024-25 + Rabi 2024-25, Cabinet approved) ──────────────
+// Source: Cabinet Committee on Economic Affairs, Government of India
+// Unit: ₹ per tonne (converted from ₹/quintal × 10)
+const MSP = {
+  'Rice':      23000,   // ₹2,300/quintal
+  'Wheat':     23500,   // ₹2,350/quintal (Rabi 2025)
+  'Maize':     22600,   // ₹2,260/quintal
+  'Cotton':    70600,   // ₹7,060/quintal (medium staple)
+  'Sugarcane': 3400,    // ₹340/quintal (FRP)
+  'Soybean':   48920,   // ₹4,892/quintal
+};
+
+function updateMspBadge() {
+  const crop    = document.getElementById('pr-crop').value;
+  const price   = parseFloat(document.getElementById('pr-price').value) || 0;
+  const badge   = document.getElementById('msp-badge');
+  const infoEl  = document.getElementById('msp-info');
+  const msp     = MSP[crop];
+
+  if (!msp) { badge.style.display = 'none'; infoEl.textContent = ''; return; }
+
+  badge.style.display = 'inline-block';
+  const diff    = price - msp;
+  const pct     = ((diff / msp) * 100).toFixed(1);
+
+  if (diff > 0) {
+    badge.className = 'msp-badge msp-above';
+    badge.textContent = `✅ +₹${diff.toLocaleString('en-IN')} above MSP`;
+    infoEl.textContent = `MSP for ${crop}: ₹${msp.toLocaleString('en-IN')}/tonne — your price is ${pct}% above government support price.`;
+  } else if (diff < 0) {
+    badge.className = 'msp-badge msp-below';
+    badge.textContent = `⚠️ ₹${Math.abs(diff).toLocaleString('en-IN')} below MSP`;
+    infoEl.textContent = `⚠️ MSP is ₹${msp.toLocaleString('en-IN')}/tonne. Consider selling to government procurement (APMC).`;
+  } else {
+    badge.className = 'msp-badge msp-equal';
+    badge.textContent = '≈ At MSP';
+    infoEl.textContent = `Selling at exactly MSP (₹${msp.toLocaleString('en-IN')}/tonne).`;
+  }
+}
+
+// Run on load
+document.addEventListener('DOMContentLoaded', updateMspBadge);
+
+// ── Leaflet Farm Map ──────────────────────────────────────────────────────────
+let _map = null, _drawCtrl = null, _drawnLayer = null, _calcHa = null;
+
+function openMapModal() {
+  document.getElementById('map-modal').classList.add('open');
+  if (_map) { _map.invalidateSize(); return; }
+
+  // Init map centered on user location or India center
+  const initLat = 20.5937, initLon = 78.9629;
+  _map = L.map('farm-map').setView([initLat, initLon], 6);
+
+  // Satellite + Street toggle
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 20
+  });
+  const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© Esri', maxZoom: 20
+  });
+  sat.addTo(_map);
+  L.control.layers({'🛰️ Satellite': sat, '🗺️ Street Map': osm}).addTo(_map);
+
+  // Draw control
+  const drawnItems = new L.FeatureGroup();
+  _map.addLayer(drawnItems);
+  _drawCtrl = new L.Control.Draw({
+    draw: {
+      polygon:   { shapeOptions: { color: '#2d7a52', fillOpacity: 0.2 }, showArea: true },
+      rectangle: { shapeOptions: { color: '#2d7a52', fillOpacity: 0.2 } },
+      polyline: false, circle: false, circlemarker: false, marker: false,
+    },
+    edit: { featureGroup: drawnItems },
+  });
+  _map.addControl(_drawCtrl);
+
+  _map.on(L.Draw.Event.CREATED, e => {
+    drawnItems.clearLayers();
+    drawnItems.addLayer(e.layer);
+    _drawnLayer = e.layer;
+    const areaM2 = L.GeometryUtil.geodesicArea(e.layer.getLatLngs()[0]);
+    _calcHa = (areaM2 / 10000).toFixed(3);
+    document.getElementById('map-area-display').textContent = `Calculated area: ${_calcHa} ha (${(areaM2 / 4047).toFixed(2)} acres)`;
+    document.getElementById('map-confirm-btn').disabled = false;
+  });
+
+  // Try GPS center
+  navigator.geolocation && navigator.geolocation.getCurrentPosition(pos => {
+    _map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+  });
+}
+
+function closeMapModal() {
+  document.getElementById('map-modal').classList.remove('open');
+}
+
+function confirmMapArea() {
+  if (_calcHa) {
+    document.getElementById('pr-area').value = _calcHa;
+    closeMapModal();
+  }
+}
+
+// Close on overlay click
+document.getElementById('map-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('map-modal')) closeMapModal();
+});
+</script>
 {% endblock %}

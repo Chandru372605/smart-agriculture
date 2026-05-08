@@ -60,12 +60,16 @@ if os.path.exists(DATA_PATH):
     df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
     df.columns = [c.lower().strip() for c in df.columns]
 
-    # Compute yield per hectare
-    df = df.dropna(subset=['production', 'area'])
-    df = df[df['area'] > 0]
-    df['yield_per_ha'] = df['production'] / df['area']
-    df = df[df['yield_per_ha'] < df['yield_per_ha'].quantile(0.99)]  # remove outliers
-    df = df[df['yield_per_ha'] > 0]
+    # Compute yield per hectare (only if not already present)
+    if 'yield_per_ha' not in df.columns:
+        df = df.dropna(subset=['production', 'area'])
+        df = df[df['area'] > 0]
+        df['yield_per_ha'] = df['production'] / df['area']
+        df = df[df['yield_per_ha'] < df['yield_per_ha'].quantile(0.99)]
+        df = df[df['yield_per_ha'] > 0]
+    else:
+        df = df.dropna(subset=['yield_per_ha', 'area'])
+        df = df[df['yield_per_ha'] > 0]
 
     # Fill missing numerics
     for col in ['rainfall', 'fertiliser', 'pesticide']:

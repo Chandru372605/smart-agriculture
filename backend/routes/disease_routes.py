@@ -2,6 +2,11 @@
 AgroSense — Disease Detection API
 POST /api/disease/predict          (multipart image upload)
 POST /api/disease/predict-sample   (JSON — sample button path)
+
+Model priority (TensorFlow-free first):
+  1. disease_sklearn.pkl  — HOG + colour-histogram Random Forest (Python 3.14 safe)
+  2. disease_cnn.keras    — MobileNetV2 CNN  (requires TensorFlow ≤ Python 3.12)
+  3. disease_demo_rf.pkl  — simple colour-only RF fallback
 """
 from flask import Blueprint, request, jsonify
 import numpy as np
@@ -10,6 +15,60 @@ from backend.config import Config
 from backend.models.db_models import log_prediction
 
 disease_bp = Blueprint('disease', __name__)
+
+
+# ─── feature extraction (mirrors train_sklearn_hog.py) ────────────────────────
+def _color_histogram(arr: np.ndarray, bins: int = 32) -> np.ndarray:
+    feats = []
+    for ch in range(3):
+        hist, _ = np.histogram(arr[:, :, ch], bins=bins, range=(0, 256))
+        feats.extend(hist / (arr.shape[0] * arr.shape[1]))
+    return np.array(feats, dtype=np.float32)
+
+
+def _color_moments(arr: np.ndarray) -> np.ndarray:
+    feats = []
+    for ch in range(3):
+        c    = arr[:, :, ch].astype(np.float32)
+        mean = c.mean()
+        std  = c.std() + 1e-6
+        skew = float(np.mean(((c - mean) / std) ** 3))
+        feats.extend([mean / 255.0, std / 255.0, skew])
+    return np.array(feats, dtype=np.float32)
+
+
+def _simple_hog(gray: np.ndarray, cell_size: int = 8) -> np.ndarray:
+    h, w = gray.shape
+    gx = np.zeros_like(gray, dtype=np.float32)
+    gy = np.zeros_like(gray, dtype=np.float32)
+    gx[:, 1:-1] = gray[:, 2:].astype(np.float32) - gray[:, :-2].astype(np.float32)
+    gy[1:-1, :] = gray[2:, :].astype(np.float32) - gray[:-2, :].astype(np.float32)
+    magnitude   = np.sqrt(gx**2 + gy**2)
+    orientation = (np.degrees(np.arctan2(gy, gx)) % 180).astype(np.float32)
+    n_bins = 9
+    n_cells_h = h // cell_size
+    n_cells_w = w // cell_size
+    hog_cells = np.zeros((n_cells_h, n_cells_w, n_bins), dtype=np.float32)
+    for i in range(n_cells_h):
+        for j in range(n_cells_w):
+            cell_mag = magnitude[i*cell_size:(i+1)*cell_size, j*cell_size:(j+1)*cell_size]
+            cell_ori = orientation[i*cell_size:(i+1)*cell_size, j*cell_size:(j+1)*cell_size]
+            hist, _  = np.histogram(cell_ori, bins=n_bins, range=(0, 180), weights=cell_mag)
+            norm     = np.sqrt(hist.sum()**2 + 1e-6)
+            hog_cells[i, j] = hist / norm
+    return hog_cells.flatten()
+
+
+def _extract_features(img) -> np.ndarray:
+    """PIL Image → 681-dim feature vector matching train_sklearn_hog.py."""
+    IMG_SIZE = 64
+    img  = img.resize((IMG_SIZE, IMG_SIZE))
+    arr  = np.array(img, dtype=np.uint8)
+    gray = np.dot(arr[..., :3].astype(np.float32), [0.299, 0.587, 0.114]).astype(np.uint8)
+    ch   = _color_histogram(arr, bins=32)
+    cm   = _color_moments(arr)
+    hog  = _simple_hog(gray, cell_size=8)
+    return np.concatenate([ch, cm, hog]).reshape(1, -1)
 
 # ──────────────────────────────────────────────────────────────────────────────
 #  Treatment database — covers all 39 PlantVillage classes
@@ -398,7 +457,12 @@ def _get_response(class_name: str, confidence: float) -> dict:
 
 @disease_bp.route('/disease/predict', methods=['POST'])
 def predict_image():
-    """Real image inference — CNN (MobileNetV2) if available, else colour-histogram RF."""
+    """
+    Image inference — tries models in this order:
+      1. HOG sklearn pipeline (disease_sklearn.pkl)  — no TF needed
+      2. MobileNetV2 CNN     (disease_cnn.keras)     — needs TensorFlow
+      3. Colour-only RF demo (disease_demo_rf.pkl)   — last resort
+    """
     if 'image' not in request.files:
         return err('No image uploaded')
 
@@ -411,38 +475,45 @@ def predict_image():
         from PIL import Image
 
         img_bytes = file.read()
-        img = Image.open(io.BytesIO(img_bytes)).convert('RGB').resize((128, 128))
+        img_rgb   = Image.open(io.BytesIO(img_bytes)).convert('RGB')
 
-        # ── Try CNN first ───────────────────────────────────────────────
+        # ── 1. HOG sklearn model (Python 3.14 safe) ─────────────────────
+        sklearn_model  = load_model(Config.DISEASE_SKLEARN_PATH, 'disease_sklearn')
+        classes_list   = load_model(Config.DISEASE_META_PATH,    'disease_meta')
+        if sklearn_model is not None and classes_list is not None:
+            feat  = _extract_features(img_rgb)
+            proba = sklearn_model.predict_proba(feat)[0]
+            idx   = int(proba.argmax())
+            conf  = float(proba[idx]) * 100
+            cls   = classes_list[idx] if isinstance(classes_list, list) else list(sklearn_model.classes_)[idx]
+            log_prediction('disease', f'Sklearn-HOG | {cls}', cls, confidence=round(conf, 1))
+            return jsonify(_get_response(cls, conf))
+
+        # ── 2. CNN (requires TensorFlow ≤ Python 3.12) ───────────────────
         import os
         os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '2')
         from backend.utils.helpers import load_keras_model
         cnn = load_keras_model(Config.DISEASE_CNN_PATH, 'disease_cnn')
-        if cnn is not None:
-            from backend.utils.helpers import load_model as lm
-            meta  = lm(Config.DISEASE_META_PATH, 'disease_meta')
-            arr   = np.array(img, dtype=np.float32) / 255.0
+        if cnn is not None and classes_list is not None:
+            arr   = np.array(img_rgb.resize((128, 128)), dtype=np.float32) / 255.0
             arr   = arr[np.newaxis, ...]
             preds = cnn.predict(arr, verbose=0)[0]
             idx   = int(preds.argmax())
             conf  = float(preds[idx]) * 100
-            # disease_classes.pkl saved by train_disease.py is a plain list of class names
-            if isinstance(meta, list):
-                cls = meta[idx]
-            else:
-                cls = meta.get('classes', [])[idx]
+            cls   = classes_list[idx] if isinstance(classes_list, list) else classes_list.get('classes', [])[idx]
             log_prediction('disease', f'CNN | {cls}', cls, confidence=round(conf, 1))
             return jsonify(_get_response(cls, conf))
 
-        # ── Fallback: colour-histogram Random Forest ────────────────────
+        # ── 3. Colour-only RF demo fallback ──────────────────────────────
         meta_obj = load_model(Config.DISEASE_META_PATH, 'disease_meta')
         rf_model = load_model(Config.DISEASE_RF_PATH,   'disease_rf')
         if rf_model is None:
-            return err('Disease model not found. Run train_disease.py first.')
+            return err('Disease model not found — run train_sklearn_hog.py first.')
 
-        arr   = np.array(img, dtype=np.float32)
-        r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-        feat  = np.array([[
+        img_small = img_rgb.resize((128, 128))
+        arr       = np.array(img_small, dtype=np.float32)
+        r, g, b   = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+        feat      = np.array([[
             r.mean(), g.mean(), b.mean(),
             r.std(),  g.std(),  b.std(),
             r.mean() / (g.mean() + 1),
@@ -455,7 +526,7 @@ def predict_image():
         idx   = int(proba.argmax())
         conf  = float(proba[idx]) * 100
         cls   = enc.inverse_transform([idx])[0]
-        log_prediction('disease', f'RF | {cls}', cls, confidence=round(conf, 1))
+        log_prediction('disease', f'RF-demo | {cls}', cls, confidence=round(conf, 1))
         return jsonify(_get_response(cls, conf))
 
     except Exception as e:

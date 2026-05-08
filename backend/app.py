@@ -3,7 +3,7 @@ AgroSense — Flask Application Entry Point
 Serves 9 page routes + 8 /api/* blueprint routes for live ML predictions
 + prediction history API + SQLite persistence.
 """
-import sys, os
+import sys, os, logging
 
 # Make sure 'backend' package is importable when running from project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -42,6 +42,7 @@ from backend.routes.pest_routes       import pest_bp
 from backend.routes.profit_routes     import profit_bp
 from backend.routes.market_routes     import market_bp
 from backend.routes.history_routes    import history_bp
+from backend.routes.weather_routes    import weather_bp
 
 API_PREFIX = '/api'
 app.register_blueprint(crop_bp,       url_prefix=API_PREFIX)
@@ -53,6 +54,7 @@ app.register_blueprint(pest_bp,       url_prefix=API_PREFIX)
 app.register_blueprint(profit_bp,     url_prefix=API_PREFIX)
 app.register_blueprint(market_bp,     url_prefix=API_PREFIX)
 app.register_blueprint(history_bp,    url_prefix=API_PREFIX)
+app.register_blueprint(weather_bp,    url_prefix=API_PREFIX)
 
 
 # ─────────────────────────────────────────
@@ -108,7 +110,33 @@ from flask import jsonify
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'version': '1.0.0', 'modules': 8})
+    return jsonify({'status': 'ok', 'version': '1.0.0', 'modules': 9})
+
+
+# ─────────────────────────────────────────
+#  Favicon route (prevents 404 log spam)
+# ─────────────────────────────────────────
+from flask import send_from_directory
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        os.path.join(app.static_folder, 'img'),
+        'favicon.png', mimetype='image/png'
+    )
+
+
+# ─────────────────────────────────────────
+#  Error handlers
+# ─────────────────────────────────────────
+@app.errorhandler(404)
+def not_found(e):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+
 
 
 # ─────────────────────────────────────────

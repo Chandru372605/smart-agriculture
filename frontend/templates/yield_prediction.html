@@ -1,13 +1,69 @@
 {% extends "base.html" %}
 
 {% block title %}Yield Prediction — AgroSense{% endblock %}
-{% block meta_description %}Predict harvest yield in tonnes per hectare before sowing season using an XGBoost model.{% endblock %}
+{% block meta_description %}Predict harvest yield in tonnes per hectare before sowing season using an XGBoost model with live rainfall data.{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+<style>
+.openmeteo-bar {
+  background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%);
+  border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;
+  color: #fff; font-size: 12px;
+}
+.openmeteo-bar .om-title { font-weight: 700; opacity: .85; margin-bottom: 6px; font-size: 11px; letter-spacing: .4px; }
+.om-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.om-chip  { background: rgba(255,255,255,.15); border-radius: 6px; padding: 4px 10px; font-size: 11px; }
+.om-status { font-size: 10px; opacity: .65; margin-top: 6px; }
+.btn-map-draw {
+  background: #f0faf5; color: var(--green-deep); border: 1px solid #b6dfc8;
+  border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer;
+  margin-left: 6px; vertical-align: middle;
+}
+/* Map Modal */
+.map-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  z-index: 9999; align-items: center; justify-content: center;
+}
+.map-modal-overlay.open { display: flex; }
+.map-modal {
+  background: #fff; border-radius: 18px; width: min(700px,95vw);
+  max-height: 90vh; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.3);
+  display: flex; flex-direction: column;
+}
+.map-modal-header { padding: 16px 20px; border-bottom: 1px solid #e8e8e0; display: flex; align-items: center; justify-content: space-between; }
+.map-modal-header h5 { margin: 0; font-size: 15px; font-weight: 700; }
+#yd-farm-map { height: 400px; }
+.map-modal-footer { padding: 12px 20px; border-top: 1px solid #e8e8e0; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.map-area-display { font-size: 14px; font-weight: 600; color: var(--green-deep); }
+.btn-map-confirm { background: var(--green-deep); color: #fff; border: none; border-radius: 10px; padding: 9px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
   <a class="back-btn" href="{{ url_for('index') }}">← Back to Home</a>
   <h2>📊 Yield Prediction</h2>
-  <p>Predict harvest yield before planting season</p>
+  <p>Predict harvest yield before planting season — rainfall auto-filled from satellite data</p>
+</div>
+
+<!-- ── MAP MODAL ── -->
+<div class="map-modal-overlay" id="yd-map-modal">
+  <div class="map-modal">
+    <div class="map-modal-header">
+      <h5>🗺️ Draw Your Farm Boundary</h5>
+      <button onclick="closeYdMap()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666;">✕</button>
+    </div>
+    <div class="map-modal-body"><div id="yd-farm-map"></div></div>
+    <div class="map-modal-footer">
+      <div>
+        <span style="font-size:12px;color:var(--text-muted);">Use the ⬛ polygon tool to draw your field.</span>
+        <div class="map-area-display" id="yd-map-area-display">Calculated area: —</div>
+      </div>
+      <button class="btn-map-confirm" onclick="confirmYdArea()" id="yd-confirm-btn" disabled>✅ Use This Area</button>
+    </div>
+  </div>
 </div>
 
 <div class="content-wrap">
@@ -16,6 +72,14 @@
     <!-- ── INPUT ── -->
     <div class="col-lg-6">
       <div class="form-card">
+
+        <!-- Open-Meteo live rainfall banner -->
+        <div class="openmeteo-bar" id="yd-om-bar">
+          <div class="om-title">🛰️ OPEN-METEO SATELLITE DATA — Auto-fetching rainfall for your location…</div>
+          <div class="om-chips" id="yd-om-chips"></div>
+          <div class="om-status" id="yd-om-status">Requesting GPS…</div>
+        </div>
+
         <h4>🌾 Farm Details</h4>
         <div class="row g-3">
           <div class="col-6">
@@ -39,7 +103,10 @@
             </select>
           </div>
           <div class="col-6">
-            <label class="form-label" for="yd-area">Area — hectares</label>
+            <label class="form-label" for="yd-area">
+              Area — hectares
+              <button class="btn-map-draw" onclick="openYdMap()">🗺️ Map</button>
+            </label>
             <input type="number" class="form-control" id="yd-area" value="5" min="0.5" max="500"/>
           </div>
         </div>
@@ -48,7 +115,10 @@
         <h4>🌧️ Input Parameters</h4>
         <div class="row g-3">
           <div class="col-6">
-            <label class="form-label" for="yd-rain-range">Rainfall — mm</label>
+            <label class="form-label" for="yd-rain-range">
+              Annual Rainfall — mm
+              <span id="yd-rain-live" style="display:none;font-size:9px;font-weight:700;background:#0369a1;color:#fff;padding:1px 5px;border-radius:4px;margin-left:4px;">LIVE</span>
+            </label>
             <div class="range-row">
               <input id="yd-rain-range" type="range" min="100" max="3000" value="900" oninput="rv(this,'yd-rain')"/>
               <span class="range-val" id="yd-rain">900</span>
@@ -106,4 +176,89 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script>
+// ── Open-Meteo rainfall auto-fetch ──────────────────────────────────────────
+function setYdRain(mm) {
+  const clamped = Math.max(100, Math.min(3000, Math.round(mm)));
+  document.getElementById('yd-rain-range').value = clamped;
+  document.getElementById('yd-rain').textContent  = clamped;
+  document.getElementById('yd-rain-live').style.display = 'inline-block';
+}
+
+async function fetchOpenMeteoYield(lat, lon) {
+  const statusEl = document.getElementById('yd-om-status');
+  const chipsEl  = document.getElementById('yd-om-chips');
+  statusEl.textContent = '⏳ Fetching satellite data…';
+  try {
+    const r = await fetch(`/api/openmeteo/agro?lat=${lat}&lon=${lon}`);
+    const d = await r.json();
+    if (!d.success) { statusEl.textContent = '⚠️ Open-Meteo unavailable. Set rainfall manually.'; return; }
+
+    // Use 7-day precip × 52 weeks as annual estimate
+    const annual = Math.round((d.precip_7d_mm || 0) * 52);
+    setYdRain(annual > 100 ? annual : 900);
+
+    chipsEl.innerHTML = `
+      <span class="om-chip">🌧️ 7-day: ${d.precip_7d_mm}mm</span>
+      <span class="om-chip">☀️ ET₀: ${d.et0_mm_day}mm/day</span>
+      ${d.soil_moisture_pct ? `<span class="om-chip">🌱 Soil moisture: ${d.soil_moisture_pct}%</span>` : ''}
+      ${d.uv_index_max ? `<span class="om-chip">🔆 UV max: ${d.uv_index_max}</span>` : ''}
+    `;
+    statusEl.textContent = `✅ Satellite data fetched — annual rainfall estimated: ${annual}mm`;
+  } catch(e) {
+    statusEl.textContent = '⚠️ Could not fetch satellite data.';
+  }
+}
+
+window.addEventListener('load', () => {
+  navigator.geolocation && navigator.geolocation.getCurrentPosition(
+    pos => fetchOpenMeteoYield(pos.coords.latitude, pos.coords.longitude),
+    ()  => { document.getElementById('yd-om-status').textContent = '📍 GPS denied. Set rainfall manually.'; }
+  );
+});
+
+// ── Leaflet Farm Map ──────────────────────────────────────────────────────────
+let _ydMap = null, _ydCalcHa = null;
+
+function openYdMap() {
+  document.getElementById('yd-map-modal').classList.add('open');
+  if (_ydMap) { _ydMap.invalidateSize(); return; }
+
+  _ydMap = L.map('yd-farm-map').setView([20.5937, 78.9629], 6);
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 20 });
+  const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri', maxZoom: 20 });
+  sat.addTo(_ydMap);
+  L.control.layers({ '🛰️ Satellite': sat, '🗺️ Street': osm }).addTo(_ydMap);
+
+  const items = new L.FeatureGroup();
+  _ydMap.addLayer(items);
+  const dc = new L.Control.Draw({
+    draw: { polygon: { shapeOptions: { color: '#0369a1', fillOpacity: 0.2 } }, rectangle: { shapeOptions: { color: '#0369a1', fillOpacity: 0.2 } }, polyline:false, circle:false, circlemarker:false, marker:false },
+    edit: { featureGroup: items },
+  });
+  _ydMap.addControl(dc);
+
+  _ydMap.on(L.Draw.Event.CREATED, e => {
+    items.clearLayers(); items.addLayer(e.layer);
+    const m2 = L.GeometryUtil.geodesicArea(e.layer.getLatLngs()[0]);
+    _ydCalcHa = (m2 / 10000).toFixed(3);
+    document.getElementById('yd-map-area-display').textContent = `Area: ${_ydCalcHa} ha (${(m2/4047).toFixed(2)} acres)`;
+    document.getElementById('yd-confirm-btn').disabled = false;
+  });
+
+  navigator.geolocation && navigator.geolocation.getCurrentPosition(p => _ydMap.setView([p.coords.latitude, p.coords.longitude], 15));
+}
+
+function closeYdMap() { document.getElementById('yd-map-modal').classList.remove('open'); }
+function confirmYdArea() { if (_ydCalcHa) { document.getElementById('yd-area').value = _ydCalcHa; closeYdMap(); } }
+
+document.getElementById('yd-map-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('yd-map-modal')) closeYdMap();
+});
+</script>
 {% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}404 — Page Not Found | AgroSense{% endblock %}
+
+{% block content %}
+<div style="text-align:center;padding:80px 20px;">
+  <div style="font-size:80px;margin-bottom:16px;">🌿</div>
+  <h1 style="font-size:48px;font-weight:700;color:var(--green-deep);margin-bottom:8px;">404</h1>
+  <p style="font-size:18px;color:var(--text-mid);margin-bottom:32px;">
+    This page doesn't exist — like a crop planted in the wrong season.
+  </p>
+  <a href="{{ url_for('index') }}"
+     style="background:var(--green-deep);color:#fff;padding:14px 32px;border-radius:12px;
+            text-decoration:none;font-weight:600;font-size:15px;display:inline-block;">
+    🏠 Back to Dashboard
+  </a>
+</div>
+{% endblock %}

@@ -513,6 +513,18 @@ async function runMarket(btn) {
     document.getElementById('mkt-sell-window').innerHTML  = (data.sell_tags || [])
       .map(t => `<span class="tag ${t.cls || ''}">${t.text}</span>`).join('');
 
+    // Show mandi source row
+    if (data.mandi_source) {
+      const row = document.getElementById('mandi-source-row');
+      const txt = document.getElementById('mandi-source-text');
+      if (row && txt) {
+        txt.textContent = data.mandi_live
+          ? `${data.mandi_source} — ${data.mandi_market} (${data.mandi_date})`
+          : data.mandi_source;
+        row.style.display = 'block';
+      }
+    }
+
     showResult('market-result');
     toast('Price forecast generated!');
   } catch (e) {
@@ -521,3 +533,49 @@ async function runMarket(btn) {
     setLoading(btn, false);
   }
 }
+// ─────────────────────────────────────────────────────────────────
+//  MANDI PRICE AUTO-FETCH (Live price on crop change)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch live mandi price for the selected crop and auto-fill the
+ * current_price field on the Market Price page.
+ */
+async function fetchMandiPrice(crop) {
+  if (!crop) return;
+  try {
+    const r = await fetch(`/api/mandi/price?crop=${encodeURIComponent(crop)}`);
+    const d = await r.json();
+    if (!d.modal_price) return;
+
+    // Update the current price input
+    const priceInput = document.getElementById('mkt-current');
+    if (priceInput) {
+      priceInput.value = Math.round(d.modal_price);
+    }
+
+    // Show live badge
+    const badge = document.getElementById('mandi-live-badge');
+    if (badge) {
+      const isLive = d.live;
+      badge.innerHTML = isLive
+        ? `🟢 <strong>LIVE</strong> — ₹${d.modal_price.toLocaleString('en-IN')}/quintal from <em>${d.market}</em> (${d.arrival_date})`
+        : `⚪ Baseline estimate — ₹${d.modal_price.toLocaleString('en-IN')}/quintal (data.gov.in offline)`;
+      badge.style.display = 'block';
+      badge.style.color   = isLive ? '#2d7a52' : '#888';
+    }
+  } catch (e) {
+    // Silently ignore — user can enter price manually
+  }
+}
+
+// Hook into crop dropdown on market page
+document.addEventListener('DOMContentLoaded', () => {
+  const mktCrop = document.getElementById('mkt-crop');
+  if (mktCrop) {
+    // Auto-fetch on page load
+    fetchMandiPrice(mktCrop.value);
+    // Re-fetch when crop changes
+    mktCrop.addEventListener('change', () => fetchMandiPrice(mktCrop.value));
+  }
+});

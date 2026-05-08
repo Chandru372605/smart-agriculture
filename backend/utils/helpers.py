@@ -17,7 +17,10 @@ def load_model(path: str, key: str = None):
     k = key or path
     if k not in _cache:
         if os.path.exists(path):
-            _cache[k] = joblib.load(path)
+            try:
+                _cache[k] = joblib.load(path)
+            except Exception:
+                _cache[k] = None
         else:
             _cache[k] = None
     return _cache[k]
@@ -49,11 +52,12 @@ def err(msg: str, code: int = 400):
 
 
 def fmt_inr(value: float) -> str:
-    """Format a number as Indian Rupees with commas."""
+    """Format a number as Indian Rupees with commas (handles negatives)."""
     try:
         v = int(round(value))
-        s = f"{v:,}"
-        return f"₹{s}"
+        negative = v < 0
+        s = f"{abs(v):,}"
+        return f"-₹{s}" if negative else f"₹{s}"
     except Exception:
         return str(value)
 

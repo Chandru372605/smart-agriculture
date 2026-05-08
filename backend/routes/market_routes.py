@@ -1,12 +1,14 @@
 """
 AgroSense — Market Price Prediction API
 POST /api/market/forecast
+GET  /api/mandi/price?crop=Rice&state=Karnataka  → live mandi price
 """
 from flask import Blueprint, request, jsonify
 import numpy as np
 from backend.utils.helpers import load_model, load_keras_model, err, safe_float, fmt_inr
 from backend.config import Config
 from backend.models.db_models import log_prediction
+from backend.services.mandi_service import get_mandi_price, get_available_commodities
 
 market_bp = Blueprint('market', __name__)
 
@@ -33,6 +35,27 @@ INSIGHTS_DB = {
 }
 
 
+# ── Live Mandi Price endpoint ────────────────────────────────────────────────
+@market_bp.route('/mandi/price', methods=['GET'])
+def mandi_price():
+    """
+    GET /api/mandi/price?crop=Rice+%28Common%29&state=Karnataka
+    Returns today's live mandi modal price from data.gov.in.
+    Falls back to baseline estimates when API is unavailable.
+    """
+    crop  = request.args.get('crop', 'Rice (Common)').strip()
+    state = request.args.get('state', '').strip()
+    data  = get_mandi_price(crop, state)
+    return jsonify(data)
+
+
+@market_bp.route('/mandi/commodities', methods=['GET'])
+def mandi_commodities():
+    """List of crops supported by the mandi price service."""
+    return jsonify({'commodities': get_available_commodities()})
+
+
+# ── Forecast endpoint ────────────────────────────────────────────────────────
 @market_bp.route('/market/forecast', methods=['POST'])
 def forecast():
     data = request.get_json(force=True) or {}
@@ -45,12 +68,17 @@ def forecast():
         crop_raw = data.get('crop',   'Rice (Common)')
         market   = data.get('market', 'Delhi (Azadpur)')
         n_days   = safe_float(data, 'forecast_days', 14)
-        curr_p   = safe_float(data, 'current_price', 2100)
         season   = data.get('season', 'Kharif (harvest)')
         crop     = crop_raw.split(' (')[0]   # strip parenthetical
-
         premium  = MARKET_PREMIUM.get(market, 1.0)
         n_days   = int(max(7, min(30, n_days)))
+
+        # ── Auto-fill current price from live mandi data ──────────────────
+        mandi    = get_mandi_price(crop_raw)
+        curr_p   = safe_float(data, 'current_price', 0)
+        if curr_p <= 0:
+            curr_p = mandi['modal_price']
+        price_live = mandi['live']
 
         if lstm is not None and scaler is not None and meta is not None:
             # ── Real LSTM inference ──────────────────────────────────────
@@ -81,7 +109,7 @@ def forecast():
 
         else:
             # ── Fallback: simple trend simulation ───────────────────────
-            rng    = np.random.default_rng(42)
+            rng    = np.random.default_rng(hash(crop + market) % (2**31))
             trend  = rng.uniform(-0.3, 0.8)
             vol    = curr_p * 0.012
             prices_pred = [curr_p]
@@ -123,12 +151,17 @@ def forecast():
         insight = INSIGHTS_DB.get(crop, f'{crop} prices depend on seasonal demand and arrivals in key markets.')
 
         log_prediction('market', f'{crop} | {n_days}d forecast',
-                       f'Forecast ₹{int(prices_pred[-1])}', inputs=data)
+                       f'Forecast {fmt_inr(int(prices_pred[-1]))}', inputs=data)
         return jsonify({
-            'prices':    [int(p) for p in prices_pred],
-            'metrics':   metrics,
-            'insights':  insight,
-            'sell_tags': sell_tags,
+            'prices':      [int(p) for p in prices_pred],
+            'metrics':     metrics,
+            'insights':    insight,
+            'sell_tags':   sell_tags,
+            'mandi_price': mandi['modal_price'],
+            'mandi_live':  price_live,
+            'mandi_market':mandi['market'],
+            'mandi_date':  mandi['arrival_date'],
+            'mandi_source':mandi['source'],
         })
 
     except Exception as e:
